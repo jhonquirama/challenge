@@ -33,7 +33,7 @@ export const createNotificationEventRoutes = (
    *         name: deliveryStatus
    *         schema:
    *           type: string
-   *           enum: [completed, failed, pending]
+   *           enum: [completed, failed, pending, retrying]
    *         description: Estado de entrega
    */
   router.get(

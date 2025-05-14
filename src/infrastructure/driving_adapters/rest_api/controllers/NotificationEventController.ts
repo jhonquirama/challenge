@@ -16,9 +16,12 @@ export class NotificationEventController {
     try {
       const filter: NotificationEventFilter = {};
 
+      // Extraer parámetros de consulta (ya validados por middleware)
       if (req.query.clientId) {
         filter.clientId = req.query.clientId as string;
       } else if (req.headers['authorized-client-id']) {
+        // Si no se especificó clientId en la query pero sí en el header de autorización,
+        // filtrar por el cliente autorizado (seguridad)
         filter.clientId = req.headers['authorized-client-id'] as string;
       }
 
@@ -80,6 +83,7 @@ export class NotificationEventController {
         return;
       }
 
+      // Registrar acceso exitoso
       logger.info('Evento consultado exitosamente', {
         eventId: id,
         clientId: event.client_id,
