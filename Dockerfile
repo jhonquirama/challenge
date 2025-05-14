@@ -8,8 +8,8 @@ RUN apk add --no-cache bash
 # Copiar archivos de configuración
 COPY package*.json ./
 
-# Instalar dependencias
-RUN npm ci
+# Instalar dependencias (usando install en lugar de ci para actualizar package-lock.json)
+RUN npm install
 
 # Copiar el código fuente
 COPY . .

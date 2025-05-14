@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import promClient from 'prom-client';
 
 // Configuración
 dotenv.config();
@@ -16,6 +17,7 @@ import { ProcessPendingNotificationsUseCase } from './core/use_cases/ProcessPend
 
 // Importaciones de infraestructura
 import { PostgresNotificationEventRepository } from './infrastructure/driven_adapters/persistence/postgres/PostgresNotificationEventRepository';
+import { PostgresEventSubscriptionRepository } from './infrastructure/driven_adapters/persistence/postgres/PostgresEventSubscriptionRepository';
 import { AxiosWebhookService } from './infrastructure/driven_adapters/webhook/AxiosWebhookService';
 import { ExponentialBackoffRetryStrategy } from './infrastructure/driven_adapters/retry/ExponentialBackoffRetryStrategy';
 import { NotificationEventController } from './infrastructure/driving_adapters/rest_api/controllers/NotificationEventController';
@@ -27,6 +29,26 @@ import { NotificationRetryJob } from './infrastructure/jobs/NotificationRetryJob
 import { logger } from './shared/utils/logger';
 import { db, testConnection, initializeDatabase } from './infrastructure/config/database.config';
 import { seedDatabase } from './infrastructure/scripts/seed-database';
+
+// Configuración de métricas Prometheus
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+// Métricas personalizadas
+const notificationCounter = new promClient.Counter({
+  name: 'notification_events_total',
+  help: 'Total de eventos de notificación procesados',
+  labelNames: ['status', 'event_type', 'client_id'],
+});
+
+const deliveryDurationHistogram = new promClient.Histogram({
+  name: 'notification_delivery_duration_seconds',
+  help: 'Duración de la entrega de notificaciones en segundos',
+  labelNames: ['status', 'event_type'],
+});
+
+register.registerMetric(notificationCounter);
+register.registerMetric(deliveryDurationHistogram);
 
 // Inicializar la aplicación
 const initializeApp = async (): Promise<express.Application> => {
@@ -73,6 +95,7 @@ const initializeApp = async (): Promise<express.Application> => {
 
   // Inicializar adaptadores
   const notificationEventRepository = new PostgresNotificationEventRepository(db);
+  const eventSubscriptionRepository = new PostgresEventSubscriptionRepository(db);
   const webhookService = new AxiosWebhookService();
   const retryStrategy = new ExponentialBackoffRetryStrategy();
 
@@ -89,6 +112,7 @@ const initializeApp = async (): Promise<express.Application> => {
     notificationEventRepository,
     webhookService,
     retryStrategy,
+    eventSubscriptionRepository,
   );
 
   const replayNotificationEventUseCase = new ReplayNotificationEventUseCase(
@@ -110,6 +134,12 @@ const initializeApp = async (): Promise<express.Application> => {
 
   // Configurar rutas
   app.use('/notification_events', createNotificationEventRoutes(notificationEventController));
+
+  // Endpoint para métricas de Prometheus
+  app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  });
 
   // Ruta de salud
   app.get('/health', (req, res) => {

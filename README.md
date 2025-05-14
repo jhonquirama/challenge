@@ -12,6 +12,8 @@ API para gestionar eventos de notificación con arquitectura hexagonal, implemen
 - CI/CD con GitHub Actions
 - Tests unitarios y de integración
 - Documentación de API con Swagger
+- Observabilidad con Prometheus y Grafana
+- Suscripciones a eventos por cliente
 
 ## Estructura del Proyecto
 
@@ -46,6 +48,7 @@ El proyecto utiliza `node-pg-migrate` para gestionar las migraciones de base de 
 
 - `1684000000000_create_notification_events_table.js`: Crea las tablas principales y sus índices
 - `1684000000001_seed_notification_events.js`: Carga datos de ejemplo
+- `1684000000002_create_event_subscriptions_table.js`: Crea la tabla de suscripciones a eventos
 
 ## Requisitos
 
@@ -110,6 +113,8 @@ El proyecto utiliza `node-pg-migrate` para gestionar las migraciones de base de 
 - `GET /notification_events`: Obtener todos los eventos de notificación (con filtros opcionales)
 - `GET /notification_events/:id`: Obtener un evento específico por ID
 - `POST /notification_events/:id/replay`: Reenviar un evento fallido
+- `GET /metrics`: Obtener métricas de Prometheus
+- `GET /health`: Verificar el estado de la aplicación
 
 ### Autenticación
 
@@ -119,6 +124,18 @@ Todas las peticiones requieren una API key válida en el header `X-API-Key`.
 
 Las peticiones deben incluir un ID de cliente en el header `X-Client-Id`. Un cliente solo puede acceder a sus propios eventos.
 
+## Observabilidad
+
+La aplicación incluye:
+
+- **Logging**: Implementado con Winston para registrar eventos y errores
+- **Métricas**: Exposición de métricas en formato Prometheus en `/metrics`
+- **Dashboard**: Grafana preconfigurado para visualizar métricas
+
+Para acceder a los dashboards:
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001 (usuario: admin, contraseña: admin)
+
 ## Desarrollo
 
 ### Scripts disponibles
@@ -126,8 +143,9 @@ Las peticiones deben incluir un ID de cliente en el header `X-Client-Id`. Un cli
 - `npm run dev`: Inicia la aplicación en modo desarrollo con recarga automática
 - `npm run build`: Compila el código TypeScript
 - `npm start`: Inicia la aplicación compilada
-- `npm test`: Ejecuta los tests
+- `npm test`: Ejecuta los tests unitarios
 - `npm run test:coverage`: Ejecuta los tests con informe de cobertura
+- `npm run test:integration`: Ejecuta los tests de integración
 - `npm run lint`: Ejecuta el linter
 - `npm run format`: Formatea el código con Prettier
 - `npm run migrate:up`: Ejecuta las migraciones pendientes
