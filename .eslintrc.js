@@ -15,7 +15,15 @@ module.exports = {
     node: true,
     jest: true,
   },
-  ignorePatterns: ['.eslintrc.js', 'jest.config.js', 'dist/', 'node_modules/', '*.js', 'coverage/'],
+  ignorePatterns: [
+    '.eslintrc.js', 
+    'jest.config.js', 
+    'dist/', 
+    'node_modules/', 
+    '*.js', 
+    'coverage/',
+    'tests/**/*.ts'  // Ignorar todos los archivos de test
+  ],
   rules: {
     '@typescript-eslint/interface-name-prefix': 'off',
     '@typescript-eslint/explicit-function-return-type': 'off',

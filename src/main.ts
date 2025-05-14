@@ -57,17 +57,17 @@ const initializeApp = () => {
   const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(
     notificationEventRepository,
   );
-  
+
   // Crear el caso de uso de entrega de notificaciones
   const deliverNotificationUseCase = new DeliverNotificationUseCase(
     notificationEventRepository,
     webhookService,
-    retryStrategy
+    retryStrategy,
   );
-  
+
   const replayNotificationEventUseCase = new ReplayNotificationEventUseCase(
     notificationEventRepository,
-    deliverNotificationUseCase
+    deliverNotificationUseCase,
   );
 
   // Inicializar controladores
