@@ -12,16 +12,15 @@ env:
   DB_NAME: notification_events_test
   DB_USER: postgres
   DB_PASSWORD: postgres
-  # Nuevas variables para cobertura
-  COVERAGE_THRESHOLD: 80  # Mínimo aceptable de cobertura (ajusta según tu proyecto)
+  COVERAGE_THRESHOLD: 80
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v3 # Puedes considerar actions/checkout@v4 también
+      - uses: actions/setup-node@v3 # Puedes considerar actions/setup-node@v4 también
         with:
           node-version: '18'
           cache: 'npm'
@@ -44,8 +43,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v3 # o @v4
+      - uses: actions/setup-node@v3 # o @v4
         with:
           node-version: '18'
           cache: 'npm'
@@ -54,33 +53,40 @@ jobs:
         run: |
           npm test -- --coverage
           # Verifica el umbral de cobertura
-          npx coverage-threshold-checker
+          # Asegúrate que 'coverage-threshold-checker' es un script en tu package.json o un paquete instalado globalmente o con npx
+          npx coverage-threshold-checker 
         env:
+          # Esta variable ya está disponible globalmente desde el 'env' del workflow,
+          # pero no hace daño re-declararla aquí si 'coverage-threshold-checker' la espera así.
           COVERAGE_THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # ACTUALIZADO
         with:
           name: coverage-report
           path: coverage/
 
       - name: Upload to Codecov (Opcional)
-        uses: codecov/codecov-action@v3
-        if: success()
+        uses: codecov/codecov-action@v4 # ACTUALIZADO
+        if: success() # El 'if: success()' es el comportamiento por defecto para los pasos, así que es opcional
+        # Considera añadir tu CODECOV_TOKEN si es un repositorio privado
+        # with:
+        #   token: ${{ secrets.CODECOV_TOKEN }}
+
 
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v3 # o @v4
+      - uses: actions/setup-node@v3 # o @v4
         with:
           node-version: '18'
           cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4 # ACTUALIZADO
         with:
           name: build
           path: dist/
