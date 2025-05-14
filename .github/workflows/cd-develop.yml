@@ -16,12 +16,11 @@ jobs:
           node-version: '18'
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       - name: Build
         run: npm run build
       
       # Ejemplo de despliegue a un entorno de desarrollo
-      # Esto podría ser AWS, Azure, Heroku, etc.
       - name: Deploy to Dev Environment
         run: |
           echo "Deploying to development environment..."

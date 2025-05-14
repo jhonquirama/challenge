@@ -31,3 +31,6 @@ Thumbs.db
 
 # Cobertura de pruebas
 coverage/
+
+# Package lock
+# package-lock.json
