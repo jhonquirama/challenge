@@ -28,11 +28,11 @@ export const validateRequestMiddleware = {
 
       if (
         req.query.deliveryStatus &&
-        !['completed', 'failed', 'pending'].includes(req.query.deliveryStatus as string)
+        !['completed', 'failed', 'pending', 'retrying'].includes(req.query.deliveryStatus as string)
       ) {
         res.status(400).json({
           message:
-            'Valor de deliveryStatus inválido. Valores permitidos: completed, failed, pending',
+            'Valor de deliveryStatus inválido. Valores permitidos: completed, failed, pending, retrying',
         });
         return;
       }

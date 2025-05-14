@@ -2,8 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
 
 // Configuración
 dotenv.config();
@@ -17,7 +15,7 @@ import { DeliverNotificationUseCase } from './core/use_cases/DeliverNotification
 import { ExponentialBackoffRetryStrategy } from './infrastructure/driven_adapters/retry/ExponentialBackoffRetryStrategy';
 
 // Importaciones de infraestructura
-import { InMemoryNotificationEventRepository } from './infrastructure/driven_adapters/persistence/in_memory/InMemoryNotificationEventRepository';
+import { PostgresNotificationEventRepository } from './infrastructure/driven_adapters/persistence/postgres/PostgresNotificationEventRepository';
 import { AxiosWebhookService } from './infrastructure/driven_adapters/webhook/AxiosWebhookService';
 import { NotificationEventController } from './infrastructure/driving_adapters/rest_api/controllers/NotificationEventController';
 import { createNotificationEventRoutes } from './infrastructure/driving_adapters/rest_api/routes/notificationEventRoutes';
@@ -25,19 +23,7 @@ import { securityHeadersMiddleware } from './infrastructure/driving_adapters/res
 import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/errorMiddleware';
 import { RateLimitMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/rateLimitMiddleware';
 import { logger } from './shared/utils/logger';
-
-// Cargar datos iniciales
-const loadInitialData = () => {
-  try {
-    const dataPath = path.join(__dirname, '../notification_events.json');
-    const rawData = fs.readFileSync(dataPath, 'utf8');
-    const data = JSON.parse(rawData);
-    return data.events;
-  } catch (error) {
-    logger.error('Error al cargar los datos iniciales:', error);
-    return [];
-  }
-};
+import { dbClient } from './infrastructure/driven_adapters/persistence/postgres/dbClient';
 
 // Inicializar la aplicación
 const initializeApp = () => {
@@ -66,8 +52,7 @@ const initializeApp = () => {
   app.use(rateLimiter.middleware);
 
   // Inicializar adaptadores
-  const initialEvents = loadInitialData();
-  const notificationEventRepository = new InMemoryNotificationEventRepository(initialEvents);
+  const notificationEventRepository = new PostgresNotificationEventRepository(dbClient);
   const webhookService = new AxiosWebhookService();
   const retryStrategy = new ExponentialBackoffRetryStrategy();
 
