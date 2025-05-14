@@ -1,4 +1,4 @@
-import { NotificationEvent, DeliveryStatus } from '../../../../core/domain/models/NotificationEvent';
+import { NotificationEvent } from '../../../../core/domain/models/NotificationEvent';
 import { INotificationEventRepository, NotificationEventFilter } from '../../../../core/ports/output/INotificationEventRepository';
 
 export class InMemoryNotificationEventRepository implements INotificationEventRepository {

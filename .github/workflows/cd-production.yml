@@ -17,6 +17,10 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm install
+      - name: Fix pg module issue
+        run: |
+          npm uninstall pg pg-promise node-pg-migrate
+          npm install pg@8.11.3 pg-promise@11.5.4 node-pg-migrate@6.2.2
       - name: Build
         run: npm run build
         env:
