@@ -1,39 +1,87 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
-import { serverConfig } from './infrastructure/config/server.config';
-import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/errorMiddleware';
-import { createHealthRoutes } from './infrastructure/driving_adapters/rest_api/routes/healthRoutes';
-import { HealthController } from './infrastructure/driving_adapters/health/HealthController';
-import { HealthCheckUseCase } from './core/use_cases/HealthCheckUseCase';
-import logger from './shared/utils/logger';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
-// Initialize Express app
-const app = express();
+// Configuración
+dotenv.config();
+const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(helmet());
-app.use(morgan('dev'));
-app.use(express.json());
+// Importaciones de core
+import { GetNotificationEventsUseCase } from './core/use_cases/GetNotificationEventsUseCase';
+import { GetNotificationEventByIdUseCase } from './core/use_cases/GetNotificationEventByIdUseCase';
+import { ReplayNotificationEventUseCase } from './core/use_cases/ReplayNotificationEventUseCase';
 
-// Initialize use cases
-const healthCheckUseCase = new HealthCheckUseCase();
+// Importaciones de infraestructura
+import { InMemoryNotificationEventRepository } from './infrastructure/driven_adapters/persistence/in_memory/InMemoryNotificationEventRepository';
+import { AxiosWebhookService } from './infrastructure/driven_adapters/webhook/AxiosWebhookService';
+import { NotificationEventController } from './infrastructure/driving_adapters/rest_api/controllers/NotificationEventController';
+import { createNotificationEventRoutes } from './infrastructure/driving_adapters/rest_api/routes/notificationEventRoutes';
 
-// Initialize controllers
-const healthController = new HealthController(healthCheckUseCase);
+// Cargar datos iniciales
+const loadInitialData = () => {
+  try {
+    const dataPath = path.join(__dirname, '../notification_events.json');
+    const rawData = fs.readFileSync(dataPath, 'utf8');
+    const data = JSON.parse(rawData);
+    return data.events;
+  } catch (error) {
+    console.error('Error al cargar los datos iniciales:', error);
+    return [];
+  }
+};
 
-// Routes
-app.use('/health', createHealthRoutes(healthController));
+// Inicializar la aplicación
+const initializeApp = () => {
+  const app = express();
 
-// Error handling middleware
-app.use(errorMiddleware);
+  // Middleware
+  app.use(helmet());
+  app.use(cors());
+  app.use(express.json());
 
-// Start server
-const PORT = serverConfig.port;
+  // Inicializar adaptadores
+  const initialEvents = loadInitialData();
+  const notificationEventRepository = new InMemoryNotificationEventRepository(initialEvents);
+  const webhookService = new AxiosWebhookService();
+
+  // Inicializar casos de uso
+  const getNotificationEventsUseCase = new GetNotificationEventsUseCase(notificationEventRepository);
+  const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(notificationEventRepository);
+  const replayNotificationEventUseCase = new ReplayNotificationEventUseCase(
+    notificationEventRepository,
+    webhookService
+  );
+
+  // Inicializar controladores
+  const notificationEventController = new NotificationEventController(
+    getNotificationEventsUseCase,
+    getNotificationEventByIdUseCase,
+    replayNotificationEventUseCase
+  );
+
+  // Configurar rutas
+  app.use('/notification_events', createNotificationEventRoutes(notificationEventController));
+
+  // Ruta de salud
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'UP' });
+  });
+
+  // Manejador de rutas no encontradas
+  app.use((req, res) => {
+    res.status(404).json({ message: 'Ruta no encontrada' });
+  });
+
+  return app;
+};
+
+// Iniciar el servidor
+const app = initializeApp();
 app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT} in ${serverConfig.nodeEnv} mode`);
+  console.log(`Servidor iniciado en el puerto ${PORT}`);
 });
 
 export default app;
