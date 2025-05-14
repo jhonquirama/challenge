@@ -11,7 +11,7 @@ export interface IRetryStrategyService {
    * Determina si un evento debe ser reintentado y cuándo
    */
   shouldRetry(event: NotificationEvent): RetryDecision;
-  
+
   /**
    * Calcula el tiempo de espera para el próximo reintento
    * basado en el número de intentos previos (backoff exponencial)

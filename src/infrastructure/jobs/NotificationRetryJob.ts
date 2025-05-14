@@ -7,7 +7,7 @@ export class NotificationRetryJob {
 
   constructor(
     private readonly processPendingNotificationsUseCase: ProcessPendingNotificationsUseCase,
-    private readonly intervalMs: number = 60000 // Por defecto, ejecutar cada minuto
+    private readonly intervalMs = 60000, // Por defecto, ejecutar cada minuto
   ) {}
 
   /**
@@ -23,10 +23,10 @@ export class NotificationRetryJob {
     this.running = true;
 
     // Ejecutar inmediatamente la primera vez
-    this.processNotifications();
+    void this.processNotifications();
 
     // Programar ejecuciones periódicas
-    this.intervalId = setInterval(() => this.processNotifications(), this.intervalMs);
+    this.intervalId = setInterval(() => void this.processNotifications(), this.intervalMs);
   }
 
   /**

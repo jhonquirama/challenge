@@ -7,7 +7,7 @@ export class DeliverNotificationUseCase {
   constructor(
     private readonly notificationEventRepository: INotificationEventRepository,
     private readonly webhookService: IWebhookService,
-    private readonly retryStrategy: IRetryStrategyService
+    private readonly retryStrategy: IRetryStrategyService,
   ) {}
 
   async execute(eventId: string, webhookUrl: string): Promise<NotificationEvent | null> {
@@ -19,13 +19,13 @@ export class DeliverNotificationUseCase {
 
     // Intentar entregar la notificación
     const result = await this.webhookService.deliverNotification(event, webhookUrl);
-    
+
     // Crear registro del intento
     const attempt: DeliveryAttempt = {
       attempt_date: result.timestamp,
       status: result.success ? 'success' : 'failure',
       status_code: result.statusCode,
-      error_message: result.error
+      error_message: result.error,
     };
 
     // Actualizar el evento con el resultado
@@ -34,7 +34,7 @@ export class DeliverNotificationUseCase {
       webhook_url: webhookUrl,
       delivery_attempts: [...(event.delivery_attempts || []), attempt],
       retry_count: (event.retry_count || 0) + (result.success ? 0 : 1),
-      last_retry_date: result.timestamp
+      last_retry_date: result.timestamp,
     };
 
     // Si fue exitoso, marcar como completado
@@ -43,7 +43,7 @@ export class DeliverNotificationUseCase {
     } else {
       // Si falló, determinar si se debe reintentar
       const retryDecision = this.retryStrategy.shouldRetry(updatedEvent);
-      
+
       if (retryDecision.shouldRetry && retryDecision.nextRetryDate) {
         updatedEvent.delivery_status = 'retrying';
         updatedEvent.next_retry_date = retryDecision.nextRetryDate;

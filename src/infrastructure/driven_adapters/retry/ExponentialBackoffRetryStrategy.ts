@@ -1,5 +1,8 @@
 import { NotificationEvent } from '../../../core/domain/models/NotificationEvent';
-import { IRetryStrategyService, RetryDecision } from '../../../core/ports/output/IRetryStrategyService';
+import {
+  IRetryStrategyService,
+  RetryDecision,
+} from '../../../core/ports/output/IRetryStrategyService';
 
 export class ExponentialBackoffRetryStrategy implements IRetryStrategyService {
   private readonly maxRetries: number;
@@ -17,17 +20,17 @@ export class ExponentialBackoffRetryStrategy implements IRetryStrategyService {
     if (event.delivery_status === 'completed') {
       return {
         shouldRetry: false,
-        reason: 'El evento ya fue entregado exitosamente'
+        reason: 'El evento ya fue entregado exitosamente',
       };
     }
 
     const retryCount = event.retry_count || 0;
-    
+
     // Si se alcanzó el número máximo de reintentos, no reintentamos
     if (retryCount >= (event.max_retries || this.maxRetries)) {
       return {
         shouldRetry: false,
-        reason: `Se alcanzó el número máximo de reintentos (${event.max_retries || this.maxRetries})`
+        reason: `Se alcanzó el número máximo de reintentos (${event.max_retries || this.maxRetries})`,
       };
     }
 
@@ -35,11 +38,11 @@ export class ExponentialBackoffRetryStrategy implements IRetryStrategyService {
     if (event.next_retry_date) {
       const nextRetryDate = new Date(event.next_retry_date);
       const now = new Date();
-      
+
       if (nextRetryDate > now) {
         return {
           shouldRetry: false,
-          reason: `Aún no es tiempo de reintentar. Próximo reintento: ${event.next_retry_date}`
+          reason: `Aún no es tiempo de reintentar. Próximo reintento: ${event.next_retry_date}`,
         };
       }
     }
@@ -51,19 +54,16 @@ export class ExponentialBackoffRetryStrategy implements IRetryStrategyService {
     return {
       shouldRetry: true,
       nextRetryDate,
-      reason: `Reintento ${retryCount + 1} de ${event.max_retries || this.maxRetries}`
+      reason: `Reintento ${retryCount + 1} de ${event.max_retries || this.maxRetries}`,
     };
   }
 
   calculateNextRetryDelay(retryCount: number): number {
     // Backoff exponencial con jitter (variación aleatoria)
-    const exponentialDelay = Math.min(
-      this.maxDelayMs,
-      this.baseDelayMs * Math.pow(2, retryCount)
-    );
-    
+    const exponentialDelay = Math.min(this.maxDelayMs, this.baseDelayMs * Math.pow(2, retryCount));
+
     // Añadir jitter (±20%)
     const jitter = exponentialDelay * 0.2;
-    return exponentialDelay - jitter + (Math.random() * jitter * 2);
+    return exponentialDelay - jitter + Math.random() * jitter * 2;
   }
 }

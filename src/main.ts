@@ -29,7 +29,7 @@ import { db, testConnection, initializeDatabase } from './infrastructure/config/
 import { seedDatabase } from './infrastructure/scripts/seed-database';
 
 // Inicializar la aplicación
-const initializeApp = async () => {
+const initializeApp = async (): Promise<express.Application> => {
   const app = express();
 
   // Middleware de seguridad
@@ -60,10 +60,10 @@ const initializeApp = async () => {
     if (!connected) {
       throw new Error('No se pudo conectar a la base de datos');
     }
-    
+
     await initializeDatabase();
     logger.info('Base de datos PostgreSQL inicializada correctamente');
-    
+
     // Cargar datos iniciales si es necesario
     await seedDatabase();
   } catch (error) {
@@ -126,10 +126,10 @@ const initializeApp = async () => {
 
   // Iniciar el trabajo de reintentos si está habilitado
   if (process.env.ENABLE_RETRY_JOB !== 'false') {
-    const retryInterval = parseInt(process.env.RETRY_INTERVAL_MS || '60000');
+    const retryInterval = parseInt(process.env.RETRY_INTERVAL_MS || '60000', 10);
     const retryJob = new NotificationRetryJob(processPendingNotificationsUseCase, retryInterval);
     retryJob.start();
-    
+
     // Asegurar que el trabajo se detenga correctamente al cerrar la aplicación
     process.on('SIGINT', () => {
       logger.info('Deteniendo trabajos programados...');

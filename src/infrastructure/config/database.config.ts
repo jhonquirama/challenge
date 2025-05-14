@@ -14,13 +14,15 @@ const config = {
 // Opciones para pg-promise
 const pgp = pgPromise({
   // Eventos de conexión
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   connect(client) {
     logger.info('Nueva conexión a la base de datos establecida');
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   disconnect(client) {
     logger.info('Conexión a la base de datos cerrada');
   },
-  error(err, e) {
+  error(err: Error, e: { query: string }) {
     logger.error('Error en la conexión a la base de datos', { error: err.message, query: e.query });
   },
 });
@@ -62,7 +64,7 @@ export const initializeDatabase = async (): Promise<void> => {
 
     if (!tablesExist.notification_events_exists || !tablesExist.delivery_attempts_exists) {
       logger.info('Creando tablas necesarias...');
-      
+
       // Crear tabla de eventos si no existe
       if (!tablesExist.notification_events_exists) {
         await db.none(`
@@ -82,13 +84,21 @@ export const initializeDatabase = async (): Promise<void> => {
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
         `);
-        
+
         // Crear índices
-        await db.none('CREATE INDEX idx_notification_events_client_id ON notification_events(client_id)');
-        await db.none('CREATE INDEX idx_notification_events_delivery_status ON notification_events(delivery_status)');
-        await db.none('CREATE INDEX idx_notification_events_delivery_date ON notification_events(delivery_date)');
-        await db.none('CREATE INDEX idx_notification_events_next_retry_date ON notification_events(next_retry_date)');
-        
+        await db.none(
+          'CREATE INDEX idx_notification_events_client_id ON notification_events(client_id)',
+        );
+        await db.none(
+          'CREATE INDEX idx_notification_events_delivery_status ON notification_events(delivery_status)',
+        );
+        await db.none(
+          'CREATE INDEX idx_notification_events_delivery_date ON notification_events(delivery_date)',
+        );
+        await db.none(
+          'CREATE INDEX idx_notification_events_next_retry_date ON notification_events(next_retry_date)',
+        );
+
         // Crear trigger para updated_at
         await db.none(`
           CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -99,7 +109,7 @@ export const initializeDatabase = async (): Promise<void> => {
           END;
           $$ LANGUAGE plpgsql
         `);
-        
+
         await db.none(`
           CREATE TRIGGER update_updated_at_trigger
           BEFORE UPDATE ON notification_events
@@ -107,7 +117,7 @@ export const initializeDatabase = async (): Promise<void> => {
           EXECUTE FUNCTION update_updated_at_column()
         `);
       }
-      
+
       // Crear tabla de intentos si no existe
       if (!tablesExist.delivery_attempts_exists) {
         await db.none(`
@@ -121,12 +131,12 @@ export const initializeDatabase = async (): Promise<void> => {
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
         `);
-        
+
         // Crear índices
         await db.none('CREATE INDEX idx_delivery_attempts_event_id ON delivery_attempts(event_id)');
         await db.none('CREATE INDEX idx_delivery_attempts_status ON delivery_attempts(status)');
       }
-      
+
       logger.info('Tablas creadas correctamente');
     } else {
       logger.info('Las tablas ya existen en la base de datos');

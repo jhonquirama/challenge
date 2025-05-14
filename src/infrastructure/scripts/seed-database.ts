@@ -13,7 +13,7 @@ const sampleEvents = [
     delivery_status: 'completed',
     client_id: 'CLIENT001',
     retry_count: 0,
-    webhook_url: 'https://webhook.site/test-endpoint-1'
+    webhook_url: 'https://webhook.site/test-endpoint-1',
   },
   {
     event_id: 'EVT002',
@@ -24,7 +24,7 @@ const sampleEvents = [
     client_id: 'CLIENT001',
     retry_count: 3,
     last_retry_date: '2024-03-15T10:45:22Z',
-    webhook_url: 'https://webhook.site/test-endpoint-1'
+    webhook_url: 'https://webhook.site/test-endpoint-1',
   },
   {
     event_id: 'EVT003',
@@ -34,7 +34,7 @@ const sampleEvents = [
     delivery_status: 'pending',
     client_id: 'CLIENT002',
     retry_count: 0,
-    webhook_url: 'https://webhook.site/test-endpoint-2'
+    webhook_url: 'https://webhook.site/test-endpoint-2',
   },
   {
     event_id: 'EVT004',
@@ -46,8 +46,8 @@ const sampleEvents = [
     retry_count: 1,
     last_retry_date: '2024-03-15T14:10:45Z',
     next_retry_date: '2024-03-15T14:40:45Z',
-    webhook_url: 'https://webhook.site/test-endpoint-2'
-  }
+    webhook_url: 'https://webhook.site/test-endpoint-2',
+  },
 ];
 
 /**
@@ -58,36 +58,36 @@ const sampleAttempts = [
     event_id: 'EVT001',
     attempt_date: '2024-03-15T09:30:25Z',
     status: 'success',
-    status_code: 200
+    status_code: 200,
   },
   {
     event_id: 'EVT002',
     attempt_date: '2024-03-15T10:15:48Z',
     status: 'failure',
     status_code: 500,
-    error_message: 'Internal server error'
+    error_message: 'Internal server error',
   },
   {
     event_id: 'EVT002',
     attempt_date: '2024-03-15T10:25:48Z',
     status: 'failure',
     status_code: 500,
-    error_message: 'Internal server error'
+    error_message: 'Internal server error',
   },
   {
     event_id: 'EVT002',
     attempt_date: '2024-03-15T10:45:22Z',
     status: 'failure',
     status_code: 500,
-    error_message: 'Internal server error'
+    error_message: 'Internal server error',
   },
   {
     event_id: 'EVT004',
     attempt_date: '2024-03-15T14:10:45Z',
     status: 'failure',
     status_code: 503,
-    error_message: 'Service unavailable'
-  }
+    error_message: 'Service unavailable',
+  },
 ];
 
 /**
@@ -97,15 +97,16 @@ export const seedDatabase = async (): Promise<void> => {
   try {
     // Verificar si ya hay datos en la base de datos
     const count = await db.one('SELECT COUNT(*) FROM notification_events');
-    
+
     if (parseInt(count.count) === 0) {
       logger.info('Cargando datos de ejemplo en la base de datos...');
-      
+
       // Usar una transacción para garantizar la integridad de los datos
-      await db.tx(async t => {
+      await db.tx(async (t) => {
         // Insertar eventos
         for (const event of sampleEvents) {
-          await t.none(`
+          await t.none(
+            `
             INSERT INTO notification_events (
               event_id, event_type, content, delivery_date, delivery_status, 
               client_id, retry_count, last_retry_date, next_retry_date, webhook_url
@@ -113,36 +114,41 @@ export const seedDatabase = async (): Promise<void> => {
               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
             )
             ON CONFLICT (event_id) DO NOTHING
-          `, [
-            event.event_id,
-            event.event_type,
-            event.content,
-            event.delivery_date,
-            event.delivery_status,
-            event.client_id,
-            event.retry_count,
-            event.last_retry_date || null,
-            event.next_retry_date || null,
-            event.webhook_url
-          ]);
+          `,
+            [
+              event.event_id,
+              event.event_type,
+              event.content,
+              event.delivery_date,
+              event.delivery_status,
+              event.client_id,
+              event.retry_count,
+              event.last_retry_date || null,
+              event.next_retry_date || null,
+              event.webhook_url,
+            ],
+          );
         }
-        
+
         // Insertar intentos de entrega
         for (const attempt of sampleAttempts) {
-          await t.none(`
+          await t.none(
+            `
             INSERT INTO delivery_attempts (
               event_id, attempt_date, status, status_code, error_message
             ) VALUES ($1, $2, $3, $4, $5)
-          `, [
-            attempt.event_id,
-            attempt.attempt_date,
-            attempt.status,
-            attempt.status_code,
-            attempt.error_message || null
-          ]);
+          `,
+            [
+              attempt.event_id,
+              attempt.attempt_date,
+              attempt.status,
+              attempt.status_code,
+              attempt.error_message || null,
+            ],
+          );
         }
       });
-      
+
       logger.info('Datos de ejemplo cargados correctamente');
     } else {
       logger.info('La base de datos ya contiene datos, omitiendo carga de datos de ejemplo');

@@ -1,6 +1,12 @@
 import { IDatabase } from 'pg-promise';
-import { NotificationEvent, DeliveryStatus } from '../../../../core/domain/models/NotificationEvent';
-import { INotificationEventRepository, NotificationEventFilter } from '../../../../core/ports/output/INotificationEventRepository';
+import {
+  NotificationEvent,
+  DeliveryStatus,
+} from '../../../../core/domain/models/NotificationEvent';
+import {
+  INotificationEventRepository,
+  NotificationEventFilter,
+} from '../../../../core/ports/output/INotificationEventRepository';
 import { logger } from '../../../../shared/utils/logger';
 
 export class PostgresNotificationEventRepository implements INotificationEventRepository {
@@ -57,7 +63,7 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
       query += ' GROUP BY ne.event_id ORDER BY ne.delivery_date DESC';
 
       const events = await this.db.any(query, queryParams);
-      
+
       // Transformar los resultados al formato esperado
       return events.map(this.mapDbEventToModel);
     } catch (error) {
@@ -90,11 +96,11 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
       `;
 
       const event = await this.db.oneOrNone(query, [id]);
-      
+
       if (!event) {
         return null;
       }
-      
+
       return this.mapDbEventToModel(event);
     } catch (error) {
       logger.error(`Error al buscar evento de notificación con ID ${id}:`, error);
@@ -105,9 +111,10 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
   async save(event: NotificationEvent): Promise<NotificationEvent> {
     try {
       // Iniciar transacción
-      return await this.db.tx(async t => {
+      return await this.db.tx(async (t) => {
         // Insertar o actualizar el evento
-        const savedEvent = await t.one(`
+        await t.one(
+          `
           INSERT INTO notification_events(
             event_id, event_type, content, delivery_date, delivery_status,
             client_id, retry_count, last_retry_date, max_retries, next_retry_date, webhook_url
@@ -125,35 +132,40 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
             webhook_url = $11,
             updated_at = CURRENT_TIMESTAMP
           RETURNING *
-        `, [
-          event.event_id,
-          event.event_type,
-          event.content,
-          event.delivery_date,
-          event.delivery_status,
-          event.client_id,
-          event.retry_count || 0,
-          event.last_retry_date,
-          event.max_retries || 5,
-          event.next_retry_date,
-          event.webhook_url
-        ]);
+        `,
+          [
+            event.event_id,
+            event.event_type,
+            event.content,
+            event.delivery_date,
+            event.delivery_status,
+            event.client_id,
+            event.retry_count || 0,
+            event.last_retry_date,
+            event.max_retries || 5,
+            event.next_retry_date,
+            event.webhook_url,
+          ],
+        );
 
         // Si hay intentos de entrega, guardarlos
         if (event.delivery_attempts && event.delivery_attempts.length > 0) {
           const lastAttempt = event.delivery_attempts[event.delivery_attempts.length - 1];
-          
-          await t.none(`
+
+          await t.none(
+            `
             INSERT INTO delivery_attempts(
               event_id, attempt_date, status, status_code, error_message
             ) VALUES($1, $2, $3, $4, $5)
-          `, [
-            event.event_id,
-            lastAttempt.attempt_date,
-            lastAttempt.status,
-            lastAttempt.status_code,
-            lastAttempt.error_message
-          ]);
+          `,
+            [
+              event.event_id,
+              lastAttempt.attempt_date,
+              lastAttempt.status,
+              lastAttempt.status_code,
+              lastAttempt.error_message,
+            ],
+          );
         }
 
         // Obtener el evento completo con sus intentos
@@ -181,7 +193,7 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
       last_retry_date: dbEvent.last_retry_date,
       max_retries: dbEvent.max_retries,
       next_retry_date: dbEvent.next_retry_date,
-      webhook_url: dbEvent.webhook_url
+      webhook_url: dbEvent.webhook_url,
     };
 
     // Mapear los intentos de entrega si existen
@@ -190,7 +202,7 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
         attempt_date: attempt.attempt_date,
         status: attempt.status as 'success' | 'failure',
         status_code: attempt.status_code,
-        error_message: attempt.error_message
+        error_message: attempt.error_message,
       }));
     } else {
       event.delivery_attempts = [];

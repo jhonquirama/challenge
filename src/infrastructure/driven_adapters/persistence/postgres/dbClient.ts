@@ -14,13 +14,15 @@ const config = {
 // Opciones para pg-promise
 const pgp = pgPromise({
   // Eventos de conexión
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   connect(client) {
     logger.info('Nueva conexión a la base de datos establecida');
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   disconnect(client) {
     logger.info('Conexión a la base de datos cerrada');
   },
-  error(err, e) {
+  error(err: Error, e: { query: string }) {
     logger.error('Error en la conexión a la base de datos', { error: err.message, query: e.query });
   },
 });
