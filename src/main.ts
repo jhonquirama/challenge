@@ -21,6 +21,10 @@ import { InMemoryNotificationEventRepository } from './infrastructure/driven_ada
 import { AxiosWebhookService } from './infrastructure/driven_adapters/webhook/AxiosWebhookService';
 import { NotificationEventController } from './infrastructure/driving_adapters/rest_api/controllers/NotificationEventController';
 import { createNotificationEventRoutes } from './infrastructure/driving_adapters/rest_api/routes/notificationEventRoutes';
+import { securityHeadersMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/securityHeadersMiddleware';
+import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/errorMiddleware';
+import { RateLimitMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/rateLimitMiddleware';
+import { logger } from './shared/utils/logger';
 
 // Cargar datos iniciales
 const loadInitialData = () => {
@@ -30,7 +34,7 @@ const loadInitialData = () => {
     const data = JSON.parse(rawData);
     return data.events;
   } catch (error) {
-    console.error('Error al cargar los datos iniciales:', error);
+    logger.error('Error al cargar los datos iniciales:', error);
     return [];
   }
 };
@@ -39,10 +43,27 @@ const loadInitialData = () => {
 const initializeApp = () => {
   const app = express();
 
-  // Middleware
+  // Middleware de seguridad
   app.use(helmet());
-  app.use(cors());
-  app.use(express.json());
+
+  // Configurar CORS
+  const corsOptions = {
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Client-Id'],
+    maxAge: 86400, // 24 horas
+  };
+  app.use(cors(corsOptions));
+
+  // Middleware para parsear JSON con límite de tamaño
+  app.use(express.json({ limit: '100kb' }));
+
+  // Middleware para cabeceras de seguridad
+  app.use(securityHeadersMiddleware);
+
+  // Middleware para limitar tasa de peticiones
+  const rateLimiter = new RateLimitMiddleware(100, 60000); // 100 peticiones por minuto
+  app.use(rateLimiter.middleware);
 
   // Inicializar adaptadores
   const initialEvents = loadInitialData();
@@ -90,13 +111,16 @@ const initializeApp = () => {
     res.status(404).json({ message: 'Ruta no encontrada' });
   });
 
+  // Middleware de manejo de errores (debe ser el último)
+  app.use(errorMiddleware);
+
   return app;
 };
 
 // Iniciar el servidor
 const app = initializeApp();
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado en el puerto ${PORT}`);
+  logger.info(`Servidor iniciado en el puerto ${PORT}`);
 });
 
 export default app;

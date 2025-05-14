@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { NotificationEventController } from '../controllers/NotificationEventController';
+import { validateRequestMiddleware } from '../middlewares/validateRequestMiddleware';
+import { authMiddleware } from '../middlewares/authMiddleware';
 
 export const createNotificationEventRoutes = (
   notificationEventController: NotificationEventController,
@@ -34,7 +36,13 @@ export const createNotificationEventRoutes = (
    *           enum: [completed, failed, pending]
    *         description: Estado de entrega
    */
-  router.get('/', (req, res) => notificationEventController.getNotificationEvents(req, res));
+  router.get(
+    '/',
+    authMiddleware.validateApiKey,
+    authMiddleware.validateClientAccess,
+    validateRequestMiddleware.validateFilters,
+    (req, res) => notificationEventController.getNotificationEvents(req, res),
+  );
 
   /**
    * @swagger
@@ -49,7 +57,13 @@ export const createNotificationEventRoutes = (
    *           type: string
    *         description: ID del evento de notificación
    */
-  router.get('/:id', (req, res) => notificationEventController.getNotificationEventById(req, res));
+  router.get(
+    '/:id',
+    authMiddleware.validateApiKey,
+    authMiddleware.validateClientAccess,
+    validateRequestMiddleware.validateId,
+    (req, res) => notificationEventController.getNotificationEventById(req, res),
+  );
 
   /**
    * @swagger
@@ -64,8 +78,12 @@ export const createNotificationEventRoutes = (
    *           type: string
    *         description: ID del evento de notificación
    */
-  router.post('/:id/replay', (req, res) =>
-    notificationEventController.replayNotificationEvent(req, res),
+  router.post(
+    '/:id/replay',
+    authMiddleware.validateApiKey,
+    authMiddleware.validateClientAccess,
+    validateRequestMiddleware.validateId,
+    (req, res) => notificationEventController.replayNotificationEvent(req, res),
   );
 
   return router;
