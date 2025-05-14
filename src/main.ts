@@ -13,6 +13,8 @@ const PORT = process.env.PORT || 3000;
 import { GetNotificationEventsUseCase } from './core/use_cases/GetNotificationEventsUseCase';
 import { GetNotificationEventByIdUseCase } from './core/use_cases/GetNotificationEventByIdUseCase';
 import { ReplayNotificationEventUseCase } from './core/use_cases/ReplayNotificationEventUseCase';
+import { DeliverNotificationUseCase } from './core/use_cases/DeliverNotificationUseCase';
+import { ExponentialBackoffRetryStrategy } from './infrastructure/driven_adapters/retry/ExponentialBackoffRetryStrategy';
 
 // Importaciones de infraestructura
 import { InMemoryNotificationEventRepository } from './infrastructure/driven_adapters/persistence/in_memory/InMemoryNotificationEventRepository';
@@ -46,20 +48,33 @@ const initializeApp = () => {
   const initialEvents = loadInitialData();
   const notificationEventRepository = new InMemoryNotificationEventRepository(initialEvents);
   const webhookService = new AxiosWebhookService();
+  const retryStrategy = new ExponentialBackoffRetryStrategy();
 
   // Inicializar casos de uso
-  const getNotificationEventsUseCase = new GetNotificationEventsUseCase(notificationEventRepository);
-  const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(notificationEventRepository);
+  const getNotificationEventsUseCase = new GetNotificationEventsUseCase(
+    notificationEventRepository,
+  );
+  const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(
+    notificationEventRepository,
+  );
+
+  // Crear el caso de uso de entrega de notificaciones
+  const deliverNotificationUseCase = new DeliverNotificationUseCase(
+    notificationEventRepository,
+    webhookService,
+    retryStrategy,
+  );
+
   const replayNotificationEventUseCase = new ReplayNotificationEventUseCase(
     notificationEventRepository,
-    webhookService
+    deliverNotificationUseCase,
   );
 
   // Inicializar controladores
   const notificationEventController = new NotificationEventController(
     getNotificationEventsUseCase,
     getNotificationEventByIdUseCase,
-    replayNotificationEventUseCase
+    replayNotificationEventUseCase,
   );
 
   // Configurar rutas

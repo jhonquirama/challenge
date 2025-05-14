@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { NotificationEventController } from '../controllers/NotificationEventController';
 
-export const createNotificationEventRoutes = (notificationEventController: NotificationEventController): Router => {
+export const createNotificationEventRoutes = (
+  notificationEventController: NotificationEventController,
+): Router => {
   const router = Router();
 
   /**
@@ -62,7 +64,9 @@ export const createNotificationEventRoutes = (notificationEventController: Notif
    *           type: string
    *         description: ID del evento de notificación
    */
-  router.post('/:id/replay', (req, res) => notificationEventController.replayNotificationEvent(req, res));
+  router.post('/:id/replay', (req, res) =>
+    notificationEventController.replayNotificationEvent(req, res),
+  );
 
   return router;
 };

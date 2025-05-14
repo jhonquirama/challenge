@@ -1,0 +1,43 @@
+name: CD - Develop
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
+      - name: Fix pg module issue
+        run: |
+          npm uninstall pg pg-promise node-pg-migrate
+          npm install pg@8.11.3 pg-promise@11.5.4 node-pg-migrate@6.2.2
+      - name: Build
+        run: npm run build
+      
+      # Ejemplo de despliegue a un entorno de desarrollo
+      - name: Deploy to Dev Environment
+        run: |
+          echo "Deploying to development environment..."
+          # Aquí irían los comandos específicos para tu entorno de desarrollo
+          # Por ejemplo, para Heroku:
+          # if [ -n "$HEROKU_API_KEY" ]; then
+          #   heroku container:login
+          #   heroku container:push web --app your-dev-app
+          #   heroku container:release web --app your-dev-app
+          # fi
+        env:
+          # Define aquí las variables de entorno necesarias para el despliegue
+          # HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          NODE_ENV: development
