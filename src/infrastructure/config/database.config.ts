@@ -1,47 +1,41 @@
 import pgPromise from 'pg-promise';
 import { logger } from '../../shared/utils/logger';
-import { spawn } from 'child_process';
-import path from 'path';
 
-// Opciones de inicialización
-const initOptions = {
-  // Eventos globales
-  error(error: any, e: any) {
-    if (e.cn) {
-      // Error de conexión
-      logger.error('Error de conexión a la base de datos:', error);
-    } else if (e.query) {
-      // Error de consulta
-      logger.error('Error en consulta:', error);
-    } else {
-      // Error genérico
-      logger.error('Error de base de datos:', error);
-    }
-  }
-};
-
-// Inicializar pg-promise con opciones
-const pgp = pgPromise(initOptions);
-
-// Configuración de conexión
-const connectionConfig = {
+// Configuración de la base de datos
+const config = {
   host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
+  port: parseInt(process.env.DB_PORT || '5432', 10),
   database: process.env.DB_NAME || 'notification_events',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
-  max: 30, // Máximo de conexiones en el pool
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  max: 30, // máximo de conexiones en el pool
 };
 
-// Crear instancia de la base de datos
-export const db = pgp(connectionConfig);
+// Opciones para pg-promise
+const pgp = pgPromise({
+  // Eventos de conexión
+  connect(client) {
+    logger.info('Nueva conexión a la base de datos establecida');
+  },
+  disconnect(client) {
+    logger.info('Conexión a la base de datos cerrada');
+  },
+  error(err, e) {
+    logger.error('Error en la conexión a la base de datos', { error: err.message, query: e.query });
+  },
+});
 
-// Función para verificar la conexión
+// Crear instancia de la base de datos
+export const db = pgp(config);
+
+/**
+ * Prueba la conexión a la base de datos
+ * @returns {Promise<boolean>} true si la conexión es exitosa, false en caso contrario
+ */
 export const testConnection = async (): Promise<boolean> => {
   try {
-    await db.one('SELECT 1 AS connected');
-    logger.info('Conexión a la base de datos establecida correctamente');
+    await db.one('SELECT 1 AS result');
+    logger.info('Conexión a la base de datos exitosa');
     return true;
   } catch (error) {
     logger.error('Error al conectar con la base de datos:', error);
@@ -49,68 +43,94 @@ export const testConnection = async (): Promise<boolean> => {
   }
 };
 
-// Función para ejecutar migraciones
-export const runMigrations = async (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    logger.info('Ejecutando migraciones de base de datos...');
-    
-    const migrateProcess = spawn('npx', [
-      'node-pg-migrate',
-      'up',
-      '--migrations-dir', './migrations',
-      '--migration-file-language', 'js',
-      '--verbose'
-    ], {
-      env: {
-        ...process.env,
-        PGHOST: process.env.DB_HOST || 'localhost',
-        PGPORT: process.env.DB_PORT || '5432',
-        PGDATABASE: process.env.DB_NAME || 'notification_events',
-        PGUSER: process.env.DB_USER || 'postgres',
-        PGPASSWORD: process.env.DB_PASSWORD || 'postgres'
-      },
-      stdio: 'pipe'
-    });
-
-    migrateProcess.stdout.on('data', (data) => {
-      logger.info(`Migración: ${data.toString().trim()}`);
-    });
-
-    migrateProcess.stderr.on('data', (data) => {
-      logger.error(`Error de migración: ${data.toString().trim()}`);
-    });
-
-    migrateProcess.on('close', (code) => {
-      if (code === 0) {
-        logger.info('Migraciones completadas exitosamente');
-        resolve(true);
-      } else {
-        logger.error(`Proceso de migración falló con código: ${code}`);
-        resolve(false);
-      }
-    });
-
-    migrateProcess.on('error', (err) => {
-      logger.error('Error al ejecutar migraciones:', err);
-      reject(err);
-    });
-  });
-};
-
-// Función para inicializar la base de datos (ahora usa migraciones)
+/**
+ * Inicializa la base de datos creando las tablas necesarias si no existen
+ */
 export const initializeDatabase = async (): Promise<void> => {
   try {
-    const connected = await testConnection();
-    if (!connected) {
-      throw new Error('No se pudo conectar a la base de datos');
+    // Verificar si las tablas existen
+    const tablesExist = await db.oneOrNone(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'notification_events'
+      ) AS notification_events_exists,
+      EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'delivery_attempts'
+      ) AS delivery_attempts_exists
+    `);
+
+    if (!tablesExist.notification_events_exists || !tablesExist.delivery_attempts_exists) {
+      logger.info('Creando tablas necesarias...');
+      
+      // Crear tabla de eventos si no existe
+      if (!tablesExist.notification_events_exists) {
+        await db.none(`
+          CREATE TABLE notification_events (
+            event_id VARCHAR(50) PRIMARY KEY,
+            event_type VARCHAR(50) NOT NULL,
+            content TEXT NOT NULL,
+            delivery_date TIMESTAMP NOT NULL,
+            delivery_status VARCHAR(20) NOT NULL CHECK (delivery_status IN ('completed', 'failed', 'pending', 'retrying')),
+            client_id VARCHAR(50),
+            retry_count INTEGER DEFAULT 0,
+            last_retry_date TIMESTAMP,
+            max_retries INTEGER DEFAULT 5,
+            next_retry_date TIMESTAMP,
+            webhook_url VARCHAR(255),
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        
+        // Crear índices
+        await db.none('CREATE INDEX idx_notification_events_client_id ON notification_events(client_id)');
+        await db.none('CREATE INDEX idx_notification_events_delivery_status ON notification_events(delivery_status)');
+        await db.none('CREATE INDEX idx_notification_events_delivery_date ON notification_events(delivery_date)');
+        await db.none('CREATE INDEX idx_notification_events_next_retry_date ON notification_events(next_retry_date)');
+        
+        // Crear trigger para updated_at
+        await db.none(`
+          CREATE OR REPLACE FUNCTION update_updated_at_column()
+          RETURNS TRIGGER AS $$
+          BEGIN
+            NEW.updated_at = now();
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql
+        `);
+        
+        await db.none(`
+          CREATE TRIGGER update_updated_at_trigger
+          BEFORE UPDATE ON notification_events
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column()
+        `);
+      }
+      
+      // Crear tabla de intentos si no existe
+      if (!tablesExist.delivery_attempts_exists) {
+        await db.none(`
+          CREATE TABLE delivery_attempts (
+            id SERIAL PRIMARY KEY,
+            event_id VARCHAR(50) NOT NULL REFERENCES notification_events(event_id) ON DELETE CASCADE,
+            attempt_date TIMESTAMP NOT NULL,
+            status VARCHAR(10) NOT NULL CHECK (status IN ('success', 'failure')),
+            status_code INTEGER,
+            error_message TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        
+        // Crear índices
+        await db.none('CREATE INDEX idx_delivery_attempts_event_id ON delivery_attempts(event_id)');
+        await db.none('CREATE INDEX idx_delivery_attempts_status ON delivery_attempts(status)');
+      }
+      
+      logger.info('Tablas creadas correctamente');
+    } else {
+      logger.info('Las tablas ya existen en la base de datos');
     }
-    
-    const migrationsSuccessful = await runMigrations();
-    if (!migrationsSuccessful) {
-      logger.warn('Las migraciones no se completaron correctamente');
-    }
-    
-    logger.info('Base de datos inicializada correctamente');
   } catch (error) {
     logger.error('Error al inicializar la base de datos:', error);
     throw error;

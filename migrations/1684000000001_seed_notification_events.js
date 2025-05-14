@@ -13,14 +13,7 @@ exports.up = pgm => {
       delivery_status: 'completed',
       client_id: 'CLIENT001',
       retry_count: 0,
-      webhook_url: 'https://webhook.site/test-endpoint-1',
-      delivery_attempts: JSON.stringify([
-        {
-          attempt_date: '2024-03-15T09:30:25Z',
-          status: 'success',
-          status_code: 200
-        }
-      ])
+      webhook_url: 'https://webhook.site/test-endpoint-1'
     },
     {
       event_id: 'EVT002',
@@ -31,27 +24,7 @@ exports.up = pgm => {
       client_id: 'CLIENT001',
       retry_count: 3,
       last_retry_date: '2024-03-15T10:45:22Z',
-      webhook_url: 'https://webhook.site/test-endpoint-1',
-      delivery_attempts: JSON.stringify([
-        {
-          attempt_date: '2024-03-15T10:15:48Z',
-          status: 'failure',
-          status_code: 500,
-          error_message: 'Internal server error'
-        },
-        {
-          attempt_date: '2024-03-15T10:25:48Z',
-          status: 'failure',
-          status_code: 500,
-          error_message: 'Internal server error'
-        },
-        {
-          attempt_date: '2024-03-15T10:45:22Z',
-          status: 'failure',
-          status_code: 500,
-          error_message: 'Internal server error'
-        }
-      ])
+      webhook_url: 'https://webhook.site/test-endpoint-1'
     },
     {
       event_id: 'EVT003',
@@ -61,8 +34,7 @@ exports.up = pgm => {
       delivery_status: 'pending',
       client_id: 'CLIENT002',
       retry_count: 0,
-      webhook_url: 'https://webhook.site/test-endpoint-2',
-      delivery_attempts: JSON.stringify([])
+      webhook_url: 'https://webhook.site/test-endpoint-2'
     },
     {
       event_id: 'EVT004',
@@ -74,25 +46,54 @@ exports.up = pgm => {
       retry_count: 1,
       last_retry_date: '2024-03-15T14:10:45Z',
       next_retry_date: '2024-03-15T14:40:45Z',
-      webhook_url: 'https://webhook.site/test-endpoint-2',
-      delivery_attempts: JSON.stringify([
-        {
-          attempt_date: '2024-03-15T14:10:45Z',
-          status: 'failure',
-          status_code: 503,
-          error_message: 'Service unavailable'
-        }
-      ])
+      webhook_url: 'https://webhook.site/test-endpoint-2'
     }
   ];
 
-  // Insertar los datos de ejemplo
+  // Datos de ejemplo para la tabla delivery_attempts
+  const sampleAttempts = [
+    {
+      event_id: 'EVT001',
+      attempt_date: '2024-03-15T09:30:25Z',
+      status: 'success',
+      status_code: 200
+    },
+    {
+      event_id: 'EVT002',
+      attempt_date: '2024-03-15T10:15:48Z',
+      status: 'failure',
+      status_code: 500,
+      error_message: 'Internal server error'
+    },
+    {
+      event_id: 'EVT002',
+      attempt_date: '2024-03-15T10:25:48Z',
+      status: 'failure',
+      status_code: 500,
+      error_message: 'Internal server error'
+    },
+    {
+      event_id: 'EVT002',
+      attempt_date: '2024-03-15T10:45:22Z',
+      status: 'failure',
+      status_code: 500,
+      error_message: 'Internal server error'
+    },
+    {
+      event_id: 'EVT004',
+      attempt_date: '2024-03-15T14:10:45Z',
+      status: 'failure',
+      status_code: 503,
+      error_message: 'Service unavailable'
+    }
+  ];
+
+  // Insertar los eventos de ejemplo
   sampleEvents.forEach(event => {
     pgm.sql(`
       INSERT INTO notification_events (
         event_id, event_type, content, delivery_date, delivery_status, 
-        client_id, retry_count, last_retry_date, next_retry_date, webhook_url,
-        delivery_attempts
+        client_id, retry_count, last_retry_date, next_retry_date, webhook_url
       ) VALUES (
         '${event.event_id}', 
         '${event.event_type}', 
@@ -103,18 +104,30 @@ exports.up = pgm => {
         ${event.retry_count}, 
         ${event.last_retry_date ? `'${event.last_retry_date}'` : 'NULL'}, 
         ${event.next_retry_date ? `'${event.next_retry_date}'` : 'NULL'}, 
-        '${event.webhook_url}', 
-        '${event.delivery_attempts}'
+        '${event.webhook_url}'
       )
       ON CONFLICT (event_id) DO NOTHING
+    `);
+  });
+
+  // Insertar los intentos de entrega de ejemplo
+  sampleAttempts.forEach(attempt => {
+    pgm.sql(`
+      INSERT INTO delivery_attempts (
+        event_id, attempt_date, status, status_code, error_message
+      ) VALUES (
+        '${attempt.event_id}', 
+        '${attempt.attempt_date}', 
+        '${attempt.status}', 
+        ${attempt.status_code}, 
+        ${attempt.error_message ? `'${attempt.error_message}'` : 'NULL'}
+      )
     `);
   });
 };
 
 exports.down = pgm => {
   // Eliminar los datos de ejemplo
-  pgm.sql(`
-    DELETE FROM notification_events 
-    WHERE event_id IN ('EVT001', 'EVT002', 'EVT003', 'EVT004')
-  `);
+  pgm.sql(`DELETE FROM delivery_attempts WHERE event_id IN ('EVT001', 'EVT002', 'EVT003', 'EVT004')`);
+  pgm.sql(`DELETE FROM notification_events WHERE event_id IN ('EVT001', 'EVT002', 'EVT003', 'EVT004')`);
 };

@@ -25,7 +25,8 @@ import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/midd
 import { RateLimitMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/rateLimitMiddleware';
 import { NotificationRetryJob } from './infrastructure/jobs/NotificationRetryJob';
 import { logger } from './shared/utils/logger';
-import { dbClient } from './infrastructure/driven_adapters/persistence/postgres/dbClient';
+import { db, testConnection, initializeDatabase } from './infrastructure/config/database.config';
+import { seedDatabase } from './infrastructure/scripts/seed-database';
 
 // Inicializar la aplicación
 const initializeApp = async () => {
@@ -53,8 +54,25 @@ const initializeApp = async () => {
   const rateLimiter = new RateLimitMiddleware(100, 60000); // 100 peticiones por minuto
   app.use(rateLimiter.middleware);
 
+  // Inicializar base de datos
+  try {
+    const connected = await testConnection();
+    if (!connected) {
+      throw new Error('No se pudo conectar a la base de datos');
+    }
+    
+    await initializeDatabase();
+    logger.info('Base de datos PostgreSQL inicializada correctamente');
+    
+    // Cargar datos iniciales si es necesario
+    await seedDatabase();
+  } catch (error) {
+    logger.error('Error al inicializar la base de datos:', error);
+    throw new Error('No se pudo inicializar la aplicación debido a un error en la base de datos');
+  }
+
   // Inicializar adaptadores
-  const notificationEventRepository = new PostgresNotificationEventRepository(dbClient);
+  const notificationEventRepository = new PostgresNotificationEventRepository(db);
   const webhookService = new AxiosWebhookService();
   const retryStrategy = new ExponentialBackoffRetryStrategy();
 

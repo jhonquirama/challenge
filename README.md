@@ -13,6 +13,40 @@ API para gestionar eventos de notificación con arquitectura hexagonal, implemen
 - Tests unitarios y de integración
 - Documentación de API con Swagger
 
+## Estructura del Proyecto
+
+```
+src/
+├── core/                      # Capa de dominio y casos de uso
+│   ├── domain/                # Entidades y modelos
+│   ├── ports/                 # Interfaces (puertos)
+│   │   ├── input/             # Puertos primarios (casos de uso)
+│   │   └── output/            # Puertos secundarios (repositorios, servicios)
+│   └── use_cases/             # Implementación de casos de uso
+├── infrastructure/            # Capa de infraestructura
+│   ├── config/                # Configuración de la aplicación
+│   ├── driven_adapters/       # Adaptadores secundarios
+│   │   ├── persistence/       # Implementaciones de repositorios
+│   │   ├── retry/             # Estrategias de reintento
+│   │   └── webhook/           # Servicios de webhook
+│   ├── driving_adapters/      # Adaptadores primarios
+│   │   └── rest_api/          # API REST
+│   │       ├── controllers/   # Controladores
+│   │       ├── middlewares/   # Middlewares
+│   │       └── routes/        # Rutas
+│   ├── jobs/                  # Trabajos programados
+│   └── scripts/               # Scripts de utilidad
+└── shared/                    # Utilidades compartidas
+    └── utils/                 # Utilidades generales
+```
+
+## Migraciones de Base de Datos
+
+El proyecto utiliza `node-pg-migrate` para gestionar las migraciones de base de datos:
+
+- `1684000000000_create_notification_events_table.js`: Crea las tablas principales y sus índices
+- `1684000000001_seed_notification_events.js`: Carga datos de ejemplo
+
 ## Requisitos
 
 - Node.js 18+
@@ -100,19 +134,6 @@ Las peticiones deben incluir un ID de cliente en el header `X-Client-Id`. Un cli
 - `npm run migrate:down`: Revierte la última migración
 - `npm run migrate:create`: Crea una nueva migración
 
-## Arquitectura
-
-El proyecto sigue la arquitectura hexagonal (puertos y adaptadores):
-
-- **Core**: Contiene la lógica de negocio pura
-  - **Domain**: Entidades y modelos
-  - **Ports**: Interfaces que definen cómo el core interactúa con el exterior
-  - **Use Cases**: Implementaciones de los casos de uso
-
-- **Infrastructure**: Implementaciones concretas
-  - **Driven Adapters**: Adaptadores secundarios (BD, servicios externos)
-  - **Driving Adapters**: Adaptadores primarios (API REST)
-
 ## Seguridad
 
 Implementa las siguientes medidas de seguridad según OWASP:
@@ -124,16 +145,6 @@ Implementa las siguientes medidas de seguridad según OWASP:
 - Limitación de tasa de peticiones
 - Manejo centralizado de errores
 - Logging seguro
-
-## CI/CD
-
-El proyecto utiliza GitHub Actions para:
-
-- Linting y verificación de código
-- Ejecución de tests
-- Verificación de cobertura
-- Compilación
-- Despliegue a entornos de desarrollo y producción
 
 ## Licencia
 
