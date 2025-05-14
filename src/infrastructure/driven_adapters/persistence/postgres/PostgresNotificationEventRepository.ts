@@ -9,152 +9,168 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
   async findAll(filter?: NotificationEventFilter): Promise<NotificationEvent[]> {
     try {
       let query = `
-        SELECT * FROM notification_events
-        WHERE 1=1
+        SELECT 
+          ne.*, 
+          json_agg(
+            json_build_object(
+              'attempt_date', da.attempt_date,
+              'status', da.status,
+              'status_code', da.status_code,
+              'error_message', da.error_message
+            )
+          ) FILTER (WHERE da.id IS NOT NULL) as delivery_attempts
+        FROM 
+          notification_events ne
+        LEFT JOIN 
+          delivery_attempts da ON ne.event_id = da.event_id
       `;
-      const params: any[] = [];
-      let paramIndex = 1;
 
-      if (filter?.clientId) {
-        query += ` AND client_id = $${paramIndex++}`;
-        params.push(filter.clientId);
+      const whereConditions: string[] = [];
+      const queryParams: any[] = [];
+
+      if (filter) {
+        if (filter.clientId) {
+          whereConditions.push('ne.client_id = $' + (queryParams.length + 1));
+          queryParams.push(filter.clientId);
+        }
+
+        if (filter.deliveryStatus) {
+          whereConditions.push('ne.delivery_status = $' + (queryParams.length + 1));
+          queryParams.push(filter.deliveryStatus);
+        }
+
+        if (filter.startDate) {
+          whereConditions.push('ne.delivery_date >= $' + (queryParams.length + 1));
+          queryParams.push(filter.startDate);
+        }
+
+        if (filter.endDate) {
+          whereConditions.push('ne.delivery_date <= $' + (queryParams.length + 1));
+          queryParams.push(filter.endDate);
+        }
       }
 
-      if (filter?.deliveryStatus) {
-        query += ` AND delivery_status = $${paramIndex++}`;
-        params.push(filter.deliveryStatus);
+      if (whereConditions.length > 0) {
+        query += ' WHERE ' + whereConditions.join(' AND ');
       }
 
-      if (filter?.startDate) {
-        query += ` AND delivery_date >= $${paramIndex++}`;
-        params.push(filter.startDate);
-      }
+      query += ' GROUP BY ne.event_id ORDER BY ne.delivery_date DESC';
 
-      if (filter?.endDate) {
-        query += ` AND delivery_date <= $${paramIndex++}`;
-        params.push(filter.endDate);
-      }
-
-      query += ' ORDER BY delivery_date DESC';
-
-      const events = await this.db.any(query, params);
-      return this.mapEventsFromDb(events);
+      const events = await this.db.any(query, queryParams);
+      
+      // Transformar los resultados al formato esperado
+      return events.map(this.mapDbEventToModel);
     } catch (error) {
-      logger.error('Error al buscar eventos de notificación', { error: (error as Error).message });
-      throw new Error(`Error al buscar eventos: ${(error as Error).message}`);
+      logger.error('Error al buscar eventos de notificación:', error);
+      throw new Error('Error al buscar eventos de notificación');
     }
   }
 
   async findById(id: string): Promise<NotificationEvent | null> {
     try {
-      const event = await this.db.oneOrNone(
-        'SELECT * FROM notification_events WHERE event_id = $1',
-        [id]
-      );
+      const query = `
+        SELECT 
+          ne.*, 
+          json_agg(
+            json_build_object(
+              'attempt_date', da.attempt_date,
+              'status', da.status,
+              'status_code', da.status_code,
+              'error_message', da.error_message
+            )
+          ) FILTER (WHERE da.id IS NOT NULL) as delivery_attempts
+        FROM 
+          notification_events ne
+        LEFT JOIN 
+          delivery_attempts da ON ne.event_id = da.event_id
+        WHERE 
+          ne.event_id = $1
+        GROUP BY 
+          ne.event_id
+      `;
 
+      const event = await this.db.oneOrNone(query, [id]);
+      
       if (!event) {
         return null;
       }
-
-      return this.mapEventFromDb(event);
+      
+      return this.mapDbEventToModel(event);
     } catch (error) {
-      logger.error('Error al buscar evento por ID', { id, error: (error as Error).message });
-      throw new Error(`Error al buscar evento por ID: ${(error as Error).message}`);
+      logger.error(`Error al buscar evento de notificación con ID ${id}:`, error);
+      throw new Error(`Error al buscar evento de notificación con ID ${id}`);
     }
   }
 
   async save(event: NotificationEvent): Promise<NotificationEvent> {
     try {
-      const result = await this.db.one(`
-        INSERT INTO notification_events (
-          event_id, event_type, content, delivery_date, delivery_status, 
-          client_id, retry_count, last_retry_date, next_retry_date, webhook_url,
-          delivery_attempts
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-        )
-        ON CONFLICT (event_id) DO UPDATE SET
-          event_type = $2,
-          content = $3,
-          delivery_date = $4,
-          delivery_status = $5,
-          client_id = $6,
-          retry_count = $7,
-          last_retry_date = $8,
-          next_retry_date = $9,
-          webhook_url = $10,
-          delivery_attempts = $11
-        RETURNING *
-      `, [
-        event.event_id,
-        event.event_type,
-        event.content,
-        event.delivery_date,
-        event.delivery_status,
-        event.client_id,
-        event.retry_count || 0,
-        event.last_retry_date || null,
-        event.next_retry_date || null,
-        event.webhook_url || null,
-        JSON.stringify(event.delivery_attempts || [])
-      ]);
+      // Iniciar transacción
+      return await this.db.tx(async t => {
+        // Insertar o actualizar el evento
+        const savedEvent = await t.one(`
+          INSERT INTO notification_events(
+            event_id, event_type, content, delivery_date, delivery_status,
+            client_id, retry_count, last_retry_date, max_retries, next_retry_date, webhook_url
+          ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ON CONFLICT(event_id) DO UPDATE SET
+            event_type = $2,
+            content = $3,
+            delivery_date = $4,
+            delivery_status = $5,
+            client_id = $6,
+            retry_count = $7,
+            last_retry_date = $8,
+            max_retries = $9,
+            next_retry_date = $10,
+            webhook_url = $11,
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING *
+        `, [
+          event.event_id,
+          event.event_type,
+          event.content,
+          event.delivery_date,
+          event.delivery_status,
+          event.client_id,
+          event.retry_count || 0,
+          event.last_retry_date,
+          event.max_retries || 5,
+          event.next_retry_date,
+          event.webhook_url
+        ]);
 
-      return this.mapEventFromDb(result);
-    } catch (error) {
-      logger.error('Error al guardar evento', { 
-        eventId: event.event_id, 
-        error: (error as Error).message 
+        // Si hay intentos de entrega, guardarlos
+        if (event.delivery_attempts && event.delivery_attempts.length > 0) {
+          const lastAttempt = event.delivery_attempts[event.delivery_attempts.length - 1];
+          
+          await t.none(`
+            INSERT INTO delivery_attempts(
+              event_id, attempt_date, status, status_code, error_message
+            ) VALUES($1, $2, $3, $4, $5)
+          `, [
+            event.event_id,
+            lastAttempt.attempt_date,
+            lastAttempt.status,
+            lastAttempt.status_code,
+            lastAttempt.error_message
+          ]);
+        }
+
+        // Obtener el evento completo con sus intentos
+        return this.findById(event.event_id) as Promise<NotificationEvent>;
       });
-      throw new Error(`Error al guardar evento: ${(error as Error).message}`);
+    } catch (error) {
+      logger.error(`Error al guardar evento de notificación:`, error);
+      throw new Error(`Error al guardar evento de notificación`);
     }
   }
 
   async update(event: NotificationEvent): Promise<NotificationEvent> {
-    try {
-      const result = await this.db.oneOrNone(`
-        UPDATE notification_events SET
-          event_type = $2,
-          content = $3,
-          delivery_date = $4,
-          delivery_status = $5,
-          client_id = $6,
-          retry_count = $7,
-          last_retry_date = $8,
-          next_retry_date = $9,
-          webhook_url = $10,
-          delivery_attempts = $11
-        WHERE event_id = $1
-        RETURNING *
-      `, [
-        event.event_id,
-        event.event_type,
-        event.content,
-        event.delivery_date,
-        event.delivery_status,
-        event.client_id,
-        event.retry_count || 0,
-        event.last_retry_date || null,
-        event.next_retry_date || null,
-        event.webhook_url || null,
-        JSON.stringify(event.delivery_attempts || [])
-      ]);
-
-      if (!result) {
-        throw new Error(`Event with id ${event.event_id} not found`);
-      }
-
-      return this.mapEventFromDb(result);
-    } catch (error) {
-      logger.error('Error al actualizar evento', { 
-        eventId: event.event_id, 
-        error: (error as Error).message 
-      });
-      throw new Error(`Error al actualizar evento: ${(error as Error).message}`);
-    }
+    return this.save(event);
   }
 
-  private mapEventFromDb(dbEvent: any): NotificationEvent {
-    return {
+  private mapDbEventToModel(dbEvent: any): NotificationEvent {
+    const event: NotificationEvent = {
       event_id: dbEvent.event_id,
       event_type: dbEvent.event_type,
       content: dbEvent.content,
@@ -163,13 +179,23 @@ export class PostgresNotificationEventRepository implements INotificationEventRe
       client_id: dbEvent.client_id,
       retry_count: dbEvent.retry_count,
       last_retry_date: dbEvent.last_retry_date,
+      max_retries: dbEvent.max_retries,
       next_retry_date: dbEvent.next_retry_date,
-      webhook_url: dbEvent.webhook_url,
-      delivery_attempts: dbEvent.delivery_attempts ? JSON.parse(dbEvent.delivery_attempts) : []
+      webhook_url: dbEvent.webhook_url
     };
-  }
 
-  private mapEventsFromDb(dbEvents: any[]): NotificationEvent[] {
-    return dbEvents.map(event => this.mapEventFromDb(event));
+    // Mapear los intentos de entrega si existen
+    if (dbEvent.delivery_attempts && dbEvent.delivery_attempts[0] !== null) {
+      event.delivery_attempts = dbEvent.delivery_attempts.map((attempt: any) => ({
+        attempt_date: attempt.attempt_date,
+        status: attempt.status as 'success' | 'failure',
+        status_code: attempt.status_code,
+        error_message: attempt.error_message
+      }));
+    } else {
+      event.delivery_attempts = [];
+    }
+
+    return event;
   }
 }

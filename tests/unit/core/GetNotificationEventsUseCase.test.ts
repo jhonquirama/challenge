@@ -50,14 +50,13 @@ class MockNotificationEventRepository implements INotificationEventRepository {
   }
 
   async save(event: NotificationEvent): Promise<NotificationEvent> {
-    const existingEventIndex = this.events.findIndex((e) => e.event_id === event.event_id);
-
+    const existingEventIndex = this.events.findIndex(e => e.event_id === event.event_id);
+    
     if (existingEventIndex >= 0) {
       this.events[existingEventIndex] = event;
     } else {
       this.events.push(event);
     }
-
     return event;
   }
 
@@ -76,7 +75,6 @@ class MockNotificationEventRepository implements INotificationEventRepository {
 describe('GetNotificationEventsUseCase', () => {
   let useCase: GetNotificationEventsUseCase;
   let repository: MockNotificationEventRepository;
-
   const mockEvents: NotificationEvent[] = [
     {
       event_id: 'EVT001',

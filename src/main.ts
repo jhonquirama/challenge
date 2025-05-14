@@ -12,21 +12,23 @@ import { GetNotificationEventsUseCase } from './core/use_cases/GetNotificationEv
 import { GetNotificationEventByIdUseCase } from './core/use_cases/GetNotificationEventByIdUseCase';
 import { ReplayNotificationEventUseCase } from './core/use_cases/ReplayNotificationEventUseCase';
 import { DeliverNotificationUseCase } from './core/use_cases/DeliverNotificationUseCase';
-import { ExponentialBackoffRetryStrategy } from './infrastructure/driven_adapters/retry/ExponentialBackoffRetryStrategy';
+import { ProcessPendingNotificationsUseCase } from './core/use_cases/ProcessPendingNotificationsUseCase';
 
 // Importaciones de infraestructura
 import { PostgresNotificationEventRepository } from './infrastructure/driven_adapters/persistence/postgres/PostgresNotificationEventRepository';
 import { AxiosWebhookService } from './infrastructure/driven_adapters/webhook/AxiosWebhookService';
+import { ExponentialBackoffRetryStrategy } from './infrastructure/driven_adapters/retry/ExponentialBackoffRetryStrategy';
 import { NotificationEventController } from './infrastructure/driving_adapters/rest_api/controllers/NotificationEventController';
 import { createNotificationEventRoutes } from './infrastructure/driving_adapters/rest_api/routes/notificationEventRoutes';
 import { securityHeadersMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/securityHeadersMiddleware';
 import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/errorMiddleware';
 import { RateLimitMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/rateLimitMiddleware';
+import { NotificationRetryJob } from './infrastructure/jobs/NotificationRetryJob';
 import { logger } from './shared/utils/logger';
 import { dbClient } from './infrastructure/driven_adapters/persistence/postgres/dbClient';
 
 // Inicializar la aplicación
-const initializeApp = () => {
+const initializeApp = async () => {
   const app = express();
 
   // Middleware de seguridad
@@ -76,6 +78,11 @@ const initializeApp = () => {
     deliverNotificationUseCase,
   );
 
+  const processPendingNotificationsUseCase = new ProcessPendingNotificationsUseCase(
+    notificationEventRepository,
+    deliverNotificationUseCase,
+  );
+
   // Inicializar controladores
   const notificationEventController = new NotificationEventController(
     getNotificationEventsUseCase,
@@ -99,13 +106,34 @@ const initializeApp = () => {
   // Middleware de manejo de errores (debe ser el último)
   app.use(errorMiddleware);
 
+  // Iniciar el trabajo de reintentos si está habilitado
+  if (process.env.ENABLE_RETRY_JOB !== 'false') {
+    const retryInterval = parseInt(process.env.RETRY_INTERVAL_MS || '60000');
+    const retryJob = new NotificationRetryJob(processPendingNotificationsUseCase, retryInterval);
+    retryJob.start();
+    
+    // Asegurar que el trabajo se detenga correctamente al cerrar la aplicación
+    process.on('SIGINT', () => {
+      logger.info('Deteniendo trabajos programados...');
+      retryJob.stop();
+      process.exit(0);
+    });
+  }
+
   return app;
 };
 
 // Iniciar el servidor
-const app = initializeApp();
-app.listen(PORT, () => {
-  logger.info(`Servidor iniciado en el puerto ${PORT}`);
-});
+(async () => {
+  try {
+    const app = await initializeApp();
+    app.listen(PORT, () => {
+      logger.info(`Servidor iniciado en el puerto ${PORT}`);
+    });
+  } catch (error) {
+    logger.error('Error al iniciar la aplicación:', error);
+    process.exit(1);
+  }
+})();
 
-export default app;
+export default initializeApp;

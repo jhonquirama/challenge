@@ -1,126 +1,140 @@
-# API de Notificación de Eventos
+# API de Eventos de Notificación
 
-Este proyecto implementa una API REST para la gestión de notificaciones de eventos siguiendo una arquitectura hexagonal.
+API para gestionar eventos de notificación con arquitectura hexagonal, implementando patrones de seguridad OWASP y sistema de reintentos.
 
-![CI](https://github.com/usuario/notification-events-api/workflows/CI/badge.svg)
+## Características
 
-## Estructura del Proyecto
-
-La estructura del proyecto sigue los principios de la arquitectura hexagonal (puertos y adaptadores):
-
-```
-.
-├── src
-│   ├── core                     # Lógica de negocio pura
-│   │   ├── domain               # Entidades y modelos de dominio
-│   │   ├── ports                # Interfaces definidas por el core
-│   │   │   ├── input            # Puertos de entrada (casos de uso)
-│   │   │   └── output           # Puertos de salida (repositorios, servicios)
-│   │   └── use_cases            # Implementaciones de los casos de uso
-│   │
-│   ├── infrastructure           # Implementaciones concretas
-│   │   ├── driving_adapters     # Adaptadores primarios (API REST)
-│   │   ├── driven_adapters      # Adaptadores secundarios (BD, servicios externos)
-│   │   └── config               # Configuración
-│   │
-│   ├── shared                   # Código compartido
-│   └── main.ts                  # Punto de entrada
-│
-├── migrations                   # Migraciones de base de datos
-│
-├── tests                        # Pruebas
-│   ├── unit
-│   ├── integration
-│   └── e2e
-│
-├── package.json
-├── tsconfig.json
-└── .env
-```
-
-## Funcionalidades Implementadas
-
-### API REST para Notificaciones de Eventos
-
-- `GET /notification_events`: Obtiene todos los eventos de notificación con filtros opcionales
-  - Filtros: clientId, startDate, endDate, deliveryStatus
-- `GET /notification_events/{id}`: Obtiene un evento de notificación específico
-- `POST /notification_events/{id}/replay`: Reenvía un evento de notificación fallido
-
-### Sistema de Reintentos
-
-- Estrategia de backoff exponencial para reintentos
-- Trabajo programado para procesar eventos pendientes
-- Registro detallado de intentos de entrega
-
-### Persistencia con PostgreSQL
-
-- Migraciones versionadas para evolución del esquema
-- Transacciones para garantizar integridad de datos
-- Índices para optimizar consultas frecuentes
-
-## CI/CD
-
-El proyecto utiliza GitHub Actions para automatizar:
-
-- **Integración Continua**: Linting, pruebas y build
-- **Entrega Continua**: Despliegue automático a entornos de desarrollo y producción
-- **Cobertura de Código**: Verificación de cobertura mínima del 80%
+- Arquitectura Hexagonal (Puertos y Adaptadores)
+- API REST con Express
+- Base de datos PostgreSQL
+- Sistema de reintentos con backoff exponencial
+- Seguridad según recomendaciones OWASP
+- CI/CD con GitHub Actions
+- Tests unitarios y de integración
+- Documentación de API con Swagger
 
 ## Requisitos
 
 - Node.js 18+
-- PostgreSQL 12+
-- npm o yarn
+- PostgreSQL 14+
+- Docker y Docker Compose (opcional)
 
 ## Instalación
 
-1. Clonar el repositorio
-2. Instalar dependencias:
+### Con Docker
+
+1. Clonar el repositorio:
+   ```bash
+   git clone https://github.com/tu-usuario/notification-events-api.git
+   cd notification-events-api
    ```
+
+2. Crear archivo de variables de entorno:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Iniciar los contenedores:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Sin Docker
+
+1. Clonar el repositorio:
+   ```bash
+   git clone https://github.com/tu-usuario/notification-events-api.git
+   cd notification-events-api
+   ```
+
+2. Instalar dependencias:
+   ```bash
    npm install
    ```
-3. Configurar variables de entorno (copiar `.env.example` a `.env` y ajustar valores)
-4. Asegurarse de que PostgreSQL esté en ejecución
-5. Ejecutar migraciones:
+
+3. Crear archivo de variables de entorno:
+   ```bash
+   cp .env.example .env
    ```
+
+4. Configurar PostgreSQL y actualizar el archivo .env con los datos de conexión.
+
+5. Ejecutar migraciones:
+   ```bash
    npm run migrate:up
    ```
 
-## Ejecución
+6. Iniciar la aplicación:
+   ```bash
+   npm run dev
+   ```
 
-### Desarrollo
+## Uso
 
-```
-npm run dev
-```
+### Endpoints
 
-### Producción
+- `GET /notification_events`: Obtener todos los eventos de notificación (con filtros opcionales)
+- `GET /notification_events/:id`: Obtener un evento específico por ID
+- `POST /notification_events/:id/replay`: Reenviar un evento fallido
 
-```
-npm run build
-npm start
-```
+### Autenticación
 
-### Docker
+Todas las peticiones requieren una API key válida en el header `X-API-Key`.
 
-```
-docker-compose up -d
-```
+### Autorización
 
-### Pruebas
+Las peticiones deben incluir un ID de cliente en el header `X-Client-Id`. Un cliente solo puede acceder a sus propios eventos.
 
-```
-npm test
-```
+## Desarrollo
+
+### Scripts disponibles
+
+- `npm run dev`: Inicia la aplicación en modo desarrollo con recarga automática
+- `npm run build`: Compila el código TypeScript
+- `npm start`: Inicia la aplicación compilada
+- `npm test`: Ejecuta los tests
+- `npm run test:coverage`: Ejecuta los tests con informe de cobertura
+- `npm run lint`: Ejecuta el linter
+- `npm run format`: Formatea el código con Prettier
+- `npm run migrate:up`: Ejecuta las migraciones pendientes
+- `npm run migrate:down`: Revierte la última migración
+- `npm run migrate:create`: Crea una nueva migración
+
+## Arquitectura
+
+El proyecto sigue la arquitectura hexagonal (puertos y adaptadores):
+
+- **Core**: Contiene la lógica de negocio pura
+  - **Domain**: Entidades y modelos
+  - **Ports**: Interfaces que definen cómo el core interactúa con el exterior
+  - **Use Cases**: Implementaciones de los casos de uso
+
+- **Infrastructure**: Implementaciones concretas
+  - **Driven Adapters**: Adaptadores secundarios (BD, servicios externos)
+  - **Driving Adapters**: Adaptadores primarios (API REST)
 
 ## Seguridad
 
-Se han implementado las siguientes medidas de seguridad:
+Implementa las siguientes medidas de seguridad según OWASP:
 
-1. Uso de Helmet para protección de cabeceras HTTP
-2. Validación de datos de entrada
-3. Autenticación mediante API Key
-4. Autorización basada en cliente
-5. Limitación de tasa de peticiones
-6. Manejo adecuado de errores
+- Validación de entradas
+- Autenticación mediante API Key
+- Autorización basada en cliente
+- Cabeceras de seguridad
+- Limitación de tasa de peticiones
+- Manejo centralizado de errores
+- Logging seguro
+
+## CI/CD
+
+El proyecto utiliza GitHub Actions para:
+
+- Linting y verificación de código
+- Ejecución de tests
+- Verificación de cobertura
+- Compilación
+- Despliegue a entornos de desarrollo y producción
+
+## Licencia
+
+[MIT](LICENSE)
