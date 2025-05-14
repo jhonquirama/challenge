@@ -36,11 +36,12 @@ export const createNotificationEventRoutes = (
    *           enum: [completed, failed, pending]
    *         description: Estado de entrega
    */
-  router.get('/', 
+  router.get(
+    '/',
     authMiddleware.validateApiKey,
     authMiddleware.validateClientAccess,
     validateRequestMiddleware.validateFilters,
-    (req, res) => notificationEventController.getNotificationEvents(req, res)
+    (req, res) => notificationEventController.getNotificationEvents(req, res),
   );
 
   /**
@@ -56,11 +57,12 @@ export const createNotificationEventRoutes = (
    *           type: string
    *         description: ID del evento de notificación
    */
-  router.get('/:id', 
+  router.get(
+    '/:id',
     authMiddleware.validateApiKey,
     authMiddleware.validateClientAccess,
     validateRequestMiddleware.validateId,
-    (req, res) => notificationEventController.getNotificationEventById(req, res)
+    (req, res) => notificationEventController.getNotificationEventById(req, res),
   );
 
   /**
@@ -76,11 +78,12 @@ export const createNotificationEventRoutes = (
    *           type: string
    *         description: ID del evento de notificación
    */
-  router.post('/:id/replay', 
+  router.post(
+    '/:id/replay',
     authMiddleware.validateApiKey,
     authMiddleware.validateClientAccess,
     validateRequestMiddleware.validateId,
-    (req, res) => notificationEventController.replayNotificationEvent(req, res)
+    (req, res) => notificationEventController.replayNotificationEvent(req, res),
   );
 
   return router;

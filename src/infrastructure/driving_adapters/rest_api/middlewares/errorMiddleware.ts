@@ -19,16 +19,15 @@ export const errorMiddleware = (
     path: req.path,
     method: req.method,
     ip: req.ip,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
-  
+
   // No exponer detalles internos al cliente en producción
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Ha ocurrido un error en el servidor' 
-    : err.message;
-  
-  res.status(500).json({ 
+  const message =
+    process.env.NODE_ENV === 'production' ? 'Ha ocurrido un error en el servidor' : err.message;
+
+  res.status(500).json({
     message,
-    requestId: req.headers['x-request-id'] || 'unknown'
+    requestId: req.headers['x-request-id'] || 'unknown',
   });
 };

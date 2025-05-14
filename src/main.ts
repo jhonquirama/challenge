@@ -45,22 +45,22 @@ const initializeApp = () => {
 
   // Middleware de seguridad
   app.use(helmet());
-  
+
   // Configurar CORS
   const corsOptions = {
     origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Client-Id'],
-    maxAge: 86400 // 24 horas
+    maxAge: 86400, // 24 horas
   };
   app.use(cors(corsOptions));
-  
+
   // Middleware para parsear JSON con límite de tamaño
   app.use(express.json({ limit: '100kb' }));
-  
+
   // Middleware para cabeceras de seguridad
   app.use(securityHeadersMiddleware);
-  
+
   // Middleware para limitar tasa de peticiones
   const rateLimiter = new RateLimitMiddleware(100, 60000); // 100 peticiones por minuto
   app.use(rateLimiter.middleware);
@@ -110,7 +110,7 @@ const initializeApp = () => {
   app.use((req, res) => {
     res.status(404).json({ message: 'Ruta no encontrada' });
   });
-  
+
   // Middleware de manejo de errores (debe ser el último)
   app.use(errorMiddleware);
 

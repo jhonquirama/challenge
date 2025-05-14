@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { DeliveryStatus } from '../../../../core/domain/models/NotificationEvent';
 
 export const validateRequestMiddleware = {
   validateFilters: (req: Request, res: Response, next: NextFunction): void => {
@@ -27,10 +26,13 @@ export const validateRequestMiddleware = {
         }
       }
 
-      if (req.query.deliveryStatus && 
-          !['completed', 'failed', 'pending'].includes(req.query.deliveryStatus as string)) {
-        res.status(400).json({ 
-          message: 'Valor de deliveryStatus inválido. Valores permitidos: completed, failed, pending' 
+      if (
+        req.query.deliveryStatus &&
+        !['completed', 'failed', 'pending'].includes(req.query.deliveryStatus as string)
+      ) {
+        res.status(400).json({
+          message:
+            'Valor de deliveryStatus inválido. Valores permitidos: completed, failed, pending',
         });
         return;
       }
@@ -44,7 +46,7 @@ export const validateRequestMiddleware = {
   validateId: (req: Request, res: Response, next: NextFunction): void => {
     try {
       const { id } = req.params;
-      
+
       if (!id || !/^[a-zA-Z0-9_-]+$/.test(id)) {
         res.status(400).json({ message: 'Formato de ID inválido' });
         return;
@@ -54,5 +56,5 @@ export const validateRequestMiddleware = {
     } catch (error) {
       res.status(400).json({ message: 'Error en la validación de ID' });
     }
-  }
+  },
 };
