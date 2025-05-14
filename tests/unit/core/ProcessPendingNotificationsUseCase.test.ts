@@ -1,9 +1,9 @@
-import { ReplayNotificationEventUseCase } from '../../../src/core/use_cases/ReplayNotificationEventUseCase';
+import { ProcessPendingNotificationsUseCase } from '../../../src/core/use_cases/ProcessPendingNotificationsUseCase';
 import { NotificationEvent } from '../../../src/core/domain/models/NotificationEvent';
 import { INotificationEventRepository } from '../../../src/core/ports/output/INotificationEventRepository';
 import { IDeliverNotificationUseCase } from '../../../src/core/ports/input/IDeliverNotificationUseCase';
 
-// Mock del repositorio para pruebas
+// Mock del repositorio
 class MockNotificationEventRepository implements INotificationEventRepository {
   private events: NotificationEvent[];
 
@@ -11,8 +11,18 @@ class MockNotificationEventRepository implements INotificationEventRepository {
     this.events = [...initialEvents];
   }
 
-  async findAll(): Promise<NotificationEvent[]> {
-    return [...this.events];
+  async findAll(filter?: any): Promise<NotificationEvent[]> {
+    let filteredEvents = [...this.events];
+
+    if (filter) {
+      if (filter.deliveryStatus) {
+        filteredEvents = filteredEvents.filter(
+          (event) => event.delivery_status === filter.deliveryStatus,
+        );
+      }
+    }
+
+    return filteredEvents;
   }
 
   async findById(id: string): Promise<NotificationEvent | null> {
@@ -46,9 +56,11 @@ class MockNotificationEventRepository implements INotificationEventRepository {
 
 // Mock del caso de uso de entrega
 class MockDeliverNotificationUseCase implements IDeliverNotificationUseCase {
+  private processedEvents: string[] = [];
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(eventId: string, webhookUrl: string): Promise<NotificationEvent | null> {
-    // Simular entrega exitosa
+    this.processedEvents.push(eventId);
     return {
       event_id: eventId,
       event_type: 'test_event',
@@ -59,10 +71,14 @@ class MockDeliverNotificationUseCase implements IDeliverNotificationUseCase {
       last_retry_date: new Date().toISOString(),
     };
   }
+
+  getProcessedEvents(): string[] {
+    return this.processedEvents;
+  }
 }
 
-describe('ReplayNotificationEventUseCase', () => {
-  let useCase: ReplayNotificationEventUseCase;
+describe('ProcessPendingNotificationsUseCase', () => {
+  let useCase: ProcessPendingNotificationsUseCase;
   let repository: MockNotificationEventRepository;
   let deliverUseCase: MockDeliverNotificationUseCase;
 
@@ -72,40 +88,45 @@ describe('ReplayNotificationEventUseCase', () => {
       event_type: 'credit_card_payment',
       content: 'Credit card payment received for $150.00',
       delivery_date: '2024-03-15T09:30:22Z',
-      delivery_status: 'failed',
+      delivery_status: 'pending',
       client_id: 'CLIENT001',
+      webhook_url: 'https://test.com/webhook',
     },
     {
       event_id: 'EVT002',
       event_type: 'debit_card_withdrawal',
       content: 'ATM withdrawal of $200.00',
       delivery_date: '2024-03-15T10:15:45Z',
-      delivery_status: 'completed',
+      delivery_status: 'retrying',
       client_id: 'CLIENT001',
+      webhook_url: 'https://test.com/webhook',
+      next_retry_date: new Date(Date.now() - 60000).toISOString(), // Fecha en el pasado
+    },
+    {
+      event_id: 'EVT003',
+      event_type: 'credit_transfer',
+      content: 'Bank transfer received',
+      delivery_date: '2024-03-15T11:20:18Z',
+      delivery_status: 'retrying',
+      client_id: 'CLIENT002',
+      webhook_url: 'https://test.com/webhook',
+      next_retry_date: new Date(Date.now() + 60000).toISOString(), // Fecha en el futuro
     },
   ];
 
   beforeEach(() => {
     repository = new MockNotificationEventRepository(mockEvents);
     deliverUseCase = new MockDeliverNotificationUseCase();
-    useCase = new ReplayNotificationEventUseCase(repository, deliverUseCase);
+    useCase = new ProcessPendingNotificationsUseCase(repository, deliverUseCase);
   });
 
-  it('should replay a failed event successfully', async () => {
-    const result = await useCase.execute('EVT001');
-    expect(result).not.toBeNull();
-    expect(result?.event_id).toBe('EVT001');
-    expect(result?.delivery_status).toBe('completed');
-  });
+  it('should process pending and ready-to-retry events', async () => {
+    await useCase.execute();
 
-  it('should return null when event does not exist', async () => {
-    const result = await useCase.execute('NON_EXISTENT');
-    expect(result).toBeNull();
-  });
-
-  it('should throw error when trying to replay a completed event', async () => {
-    await expect(useCase.execute('EVT002')).rejects.toThrow(
-      'Solo se pueden reenviar eventos con estado fallido',
-    );
+    const processedEvents = deliverUseCase.getProcessedEvents();
+    expect(processedEvents).toContain('EVT001'); // Pending event
+    expect(processedEvents).toContain('EVT002'); // Retrying event with past retry date
+    expect(processedEvents).not.toContain('EVT003'); // Retrying event with future retry date
+    expect(processedEvents.length).toBe(2);
   });
 });

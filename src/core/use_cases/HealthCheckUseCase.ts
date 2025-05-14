@@ -7,9 +7,9 @@ export class HealthCheckUseCase implements IHealthCheckUseCase {
       timestamp: new Date().toISOString(),
       services: {
         api: {
-          status: 'UP'
-        }
-      }
+          status: 'UP',
+        },
+      },
     };
   }
 }

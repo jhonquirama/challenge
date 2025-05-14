@@ -48,18 +48,22 @@ const initializeApp = () => {
   const webhookService = new AxiosWebhookService();
 
   // Inicializar casos de uso
-  const getNotificationEventsUseCase = new GetNotificationEventsUseCase(notificationEventRepository);
-  const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(notificationEventRepository);
+  const getNotificationEventsUseCase = new GetNotificationEventsUseCase(
+    notificationEventRepository,
+  );
+  const getNotificationEventByIdUseCase = new GetNotificationEventByIdUseCase(
+    notificationEventRepository,
+  );
   const replayNotificationEventUseCase = new ReplayNotificationEventUseCase(
     notificationEventRepository,
-    webhookService
+    webhookService,
   );
 
   // Inicializar controladores
   const notificationEventController = new NotificationEventController(
     getNotificationEventsUseCase,
     getNotificationEventByIdUseCase,
-    replayNotificationEventUseCase
+    replayNotificationEventUseCase,
   );
 
   // Configurar rutas
