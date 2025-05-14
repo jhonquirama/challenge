@@ -123,3 +123,4 @@ Se han implementado las siguientes medidas de seguridad:
 3. Autenticación mediante API Key
 4. Autorización basada en cliente
 5. Limitación de tasa de peticiones
+6. Manejo adecuado de errores
