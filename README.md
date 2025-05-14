@@ -123,9 +123,3 @@ Se han implementado las siguientes medidas de seguridad:
 3. Autenticación mediante API Key
 4. Autorización basada en cliente
 5. Limitación de tasa de peticiones
-
-## Documentación
-
-- `/docs/SECURITY.md`: Análisis de seguridad y mitigaciones
-- `/docs/MIGRATIONS.md`: Sistema de migraciones de base de datos
-- `/docs/RETRY_STRATEGY.md`: Estrategia de reintentos implementada
