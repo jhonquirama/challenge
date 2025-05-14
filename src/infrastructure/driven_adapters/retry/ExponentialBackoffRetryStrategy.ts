@@ -64,6 +64,9 @@ export class ExponentialBackoffRetryStrategy implements IRetryStrategyService {
     
     // Añadir jitter (±20%)
     const jitter = exponentialDelay * 0.2;
-    return exponentialDelay - jitter + (Math.random() * jitter * 2);
+    const finalDelay = exponentialDelay - jitter + (Math.random() * jitter * 2);
+    
+    // Asegurarse de que no exceda el máximo
+    return Math.min(finalDelay, this.maxDelayMs);
   }
 }

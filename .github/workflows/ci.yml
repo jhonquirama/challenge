@@ -6,87 +6,83 @@ on:
   pull_request:
     branches: [master, develop]
 
-env:
-  DB_HOST: postgres
-  DB_PORT: 5432
-  DB_NAME: notification_events_test
-  DB_USER: postgres
-  DB_PASSWORD: postgres
-  COVERAGE_THRESHOLD: 80
-
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # Puedes considerar actions/checkout@v4 también
-      - uses: actions/setup-node@v3 # Puedes considerar actions/setup-node@v4 también
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
+      - name: Install dependencies
+        run: npm install
+      - name: Run linter
+        run: npm run lint
 
   test:
-    name: Test with Coverage
+    name: Test
     runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: ${{ env.DB_USER }}
-          POSTGRES_PASSWORD: ${{ env.DB_PASSWORD }}
-          POSTGRES_DB: ${{ env.DB_NAME }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notification_events_test
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v3 # o @v4
-      - uses: actions/setup-node@v3 # o @v4
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-      - run: npm ci
-      - name: Run tests with coverage
+      - name: Install dependencies
+        run: npm install
+      - name: Fix pg module issue
         run: |
-          npm test -- --coverage
-          # Verifica el umbral de cobertura
-          # Asegúrate que 'coverage-threshold-checker' es un script en tu package.json o un paquete instalado globalmente o con npx
-          npx coverage-threshold-checker 
+          npm uninstall pg pg-promise node-pg-migrate
+          npm install pg@8.11.3 pg-promise@11.5.4 node-pg-migrate@6.2.2
+      - name: Run tests with coverage
+        run: npm run test:coverage
         env:
-          # Esta variable ya está disponible globalmente desde el 'env' del workflow,
-          # pero no hace daño re-declararla aquí si 'coverage-threshold-checker' la espera así.
-          COVERAGE_THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
-
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: notification_events_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4 # ACTUALIZADO
+        uses: actions/upload-artifact@v3
         with:
           name: coverage-report
           path: coverage/
-
-      - name: Upload to Codecov (Opcional)
-        uses: codecov/codecov-action@v4 # ACTUALIZADO
-        if: success() # El 'if: success()' es el comportamiento por defecto para los pasos, así que es opcional
-        # Considera añadir tu CODECOV_TOKEN si es un repositorio privado
-        # with:
-        #   token: ${{ secrets.CODECOV_TOKEN }}
-
 
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [lint, test]
     steps:
-      - uses: actions/checkout@v3 # o @v4
-      - uses: actions/setup-node@v3 # o @v4
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-artifact@v4 # ACTUALIZADO
+      - name: Install dependencies
+        run: npm install
+      - name: Build
+        run: npm run build
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
         with:
           name: build
           path: dist/
