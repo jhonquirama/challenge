@@ -8,12 +8,12 @@ export const seedDatabase = async (): Promise<void> => {
   try {
     // Verificar si ya hay datos en la base de datos
     const count = await db.one('SELECT COUNT(*) FROM notification_events');
-    
+
     if (parseInt(count.count) === 0) {
       logger.info('Cargando datos de ejemplo en la base de datos...');
-      
+
       // Usar una transacción para garantizar la integridad de los datos
-      await db.tx(async t => {
+      await db.tx(async (t) => {
         // Insertar eventos de ejemplo desde las migraciones
         await t.none(`
           INSERT INTO notification_events (
@@ -26,7 +26,7 @@ export const seedDatabase = async (): Promise<void> => {
             ('EVT004', 'account_update', 'Account details updated: email changed', '2024-03-15T14:05:33Z', 'retrying', 'CLIENT002', 1, 'https://webhook.site/test-endpoint-2')
           ON CONFLICT (event_id) DO NOTHING
         `);
-        
+
         // Insertar intentos de entrega de ejemplo
         await t.none(`
           INSERT INTO delivery_attempts (
@@ -38,7 +38,7 @@ export const seedDatabase = async (): Promise<void> => {
             ('EVT002', '2024-03-15T10:45:22Z', 'failure', 500, 'Internal server error'),
             ('EVT004', '2024-03-15T14:10:45Z', 'failure', 503, 'Service unavailable')
         `);
-        
+
         // Insertar suscripciones de ejemplo
         try {
           await t.none(`
@@ -53,10 +53,12 @@ export const seedDatabase = async (): Promise<void> => {
           `);
         } catch (error) {
           // Si la tabla event_subscriptions no existe, ignorar el error
-          logger.warn('No se pudieron insertar suscripciones de ejemplo (la tabla podría no existir)');
+          logger.warn(
+            'No se pudieron insertar suscripciones de ejemplo (la tabla podría no existir)',
+          );
         }
       });
-      
+
       logger.info('Datos de ejemplo cargados correctamente');
     } else {
       logger.info('La base de datos ya contiene datos, omitiendo carga de datos de ejemplo');

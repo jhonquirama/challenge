@@ -80,10 +80,10 @@ const initializeApp = async (): Promise<express.Application> => {
   try {
     // Inicializar la base de datos (verifica conexión y ejecuta migraciones si es necesario)
     await initializeDatabase();
-    
+
     // Cargar datos iniciales si es necesario
     await seedDatabase();
-    
+
     logger.info('Base de datos inicializada correctamente');
   } catch (error) {
     logger.error('Error al inicializar la base de datos:', error);
