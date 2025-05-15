@@ -1,0 +1,44 @@
+name: CD - Production
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
+      - name: Fix pg module issue
+        run: |
+          npm uninstall pg pg-promise node-pg-migrate
+          npm install pg@8.11.3 pg-promise@11.5.4 node-pg-migrate@6.2.2
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+      
+      # Ejemplo de despliegue a un entorno de producción
+      - name: Deploy to Production Environment
+        run: |
+          echo "Deploying to production environment..."
+          # Aquí irían los comandos específicos para tu entorno de producción
+          # Por ejemplo, para AWS:
+          # if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+          #   aws s3 sync ./dist s3://your-bucket/
+          #   aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          # fi
+        env:
+          # Define aquí las variables de entorno necesarias para el despliegue
+          # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # AWS_REGION: ${{ secrets.AWS_REGION }}
+          NODE_ENV: production

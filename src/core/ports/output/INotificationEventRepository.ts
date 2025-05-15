@@ -2,9 +2,9 @@ import { NotificationEvent, DeliveryStatus } from '../../domain/models/Notificat
 
 export interface NotificationEventFilter {
   clientId?: string;
+  deliveryStatus?: DeliveryStatus;
   startDate?: string;
   endDate?: string;
-  deliveryStatus?: DeliveryStatus;
 }
 
 export interface INotificationEventRepository {
