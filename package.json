@@ -14,10 +14,10 @@
     "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "migrate": "node-pg-migrate",
-    "migrate:up": "node-pg-migrate up",
-    "migrate:down": "node-pg-migrate down",
-    "migrate:create": "node-pg-migrate create",
+    "migrate": "node -r dotenv/config node_modules/.bin/node-pg-migrate",
+    "migrate:up": "node -r dotenv/config node_modules/.bin/node-pg-migrate up",
+    "migrate:down": "node -r dotenv/config node_modules/.bin/node-pg-migrate down",
+    "migrate:create": "node -r dotenv/config node_modules/.bin/node-pg-migrate create",
     "prepare": "npm run build"
   },
   "dependencies": {

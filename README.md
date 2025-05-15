@@ -98,7 +98,7 @@ El proyecto utiliza `node-pg-migrate` para gestionar las migraciones de base de 
 
 5. Ejecutar migraciones:
    ```bash
-   npm run migrate:up
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/notification_events npm run migrate:up
    ```
 
 6. Iniciar la aplicación:

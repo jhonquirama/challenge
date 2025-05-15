@@ -27,7 +27,7 @@ import { errorMiddleware } from './infrastructure/driving_adapters/rest_api/midd
 import { RateLimitMiddleware } from './infrastructure/driving_adapters/rest_api/middlewares/rateLimitMiddleware';
 import { NotificationRetryJob } from './infrastructure/jobs/NotificationRetryJob';
 import { logger } from './shared/utils/logger';
-import { db, testConnection, initializeDatabase } from './infrastructure/config/database.config';
+import { db, initializeDatabase } from './infrastructure/config/database.config';
 import { seedDatabase } from './infrastructure/scripts/seed-database';
 
 // Configuración de métricas Prometheus
@@ -78,16 +78,13 @@ const initializeApp = async (): Promise<express.Application> => {
 
   // Inicializar base de datos
   try {
-    const connected = await testConnection();
-    if (!connected) {
-      throw new Error('No se pudo conectar a la base de datos');
-    }
-
+    // Inicializar la base de datos (verifica conexión y ejecuta migraciones si es necesario)
     await initializeDatabase();
-    logger.info('Base de datos PostgreSQL inicializada correctamente');
-
+    
     // Cargar datos iniciales si es necesario
     await seedDatabase();
+    
+    logger.info('Base de datos inicializada correctamente');
   } catch (error) {
     logger.error('Error al inicializar la base de datos:', error);
     throw new Error('No se pudo inicializar la aplicación debido a un error en la base de datos');
